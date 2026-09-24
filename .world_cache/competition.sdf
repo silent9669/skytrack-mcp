@@ -1,0 +1,1573 @@
+<?xml version="1.0"?>
+<sdf version='1.9'>
+  <world name="competition">
+    <gui fullscreen='0'>
+      <camera name='camera'>
+        <pose>-16 0.2 5 0 0 0</pose>
+        <view_controller>orbit</view_controller>
+      </camera>
+    </gui>
+    <physics name='default_physics' default='0' type='ode'>
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1</real_time_factor>
+      <real_time_update_rate>1000</real_time_update_rate>
+    </physics>
+    <gravity>0 0 -9.8</gravity>
+    <magnetic_field>6e-06 2.3e-05 -4.2e-05</magnetic_field>
+    <atmosphere type='adiabatic' />
+    <scene>
+      <grid>false</grid>
+      <ambient>0.4 0.4 0.4 1</ambient>
+      <background>0.7 0.7 0.7 1</background>
+      <shadows>true</shadows>
+    </scene>
+
+    <!-- Main ground plane for physics (invisible, large area) -->
+    <model name="ground">
+      <static>true</static>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>100 100</size>
+            </plane>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.6</mu>
+                <mu2>0.6</mu2>
+              </ode>
+            </friction>
+            <bounce>
+              <restitution_coefficient>0.8</restitution_coefficient>
+              <threshold>0.05</threshold>
+            </bounce>
+            <contact>
+              <ode>
+                <min_depth>0.001</min_depth>
+                <max_vel>10.0</max_vel>
+                <kp>5e5</kp>
+                <kd>200</kd>
+              </ode>
+            </contact>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>200 100</size>
+            </plane>
+          </geometry>
+          <material>
+            <ambient>0.3 0.3 0.3 1</ambient>
+            <diffuse>0.3 0.3 0.3 1</diffuse>
+            <specular>0.1 0.1 0.1 1</specular>
+          </material>
+        </visual>
+        <pose>0 0 0 0 0 0</pose>
+      </link>
+      <pose>10 0 0 0 0 0</pose>
+    </model>
+
+    <!-- Competition Area: Total 24m x 12m -->
+    
+    <model name="competition_area">
+      <pose>22.3 5.98 0 0 0 3.14</pose>
+
+      <!-- GREEN ZONE (Vehicle Zone): 4.5m x 12m - Left side -->
+      <model name="zone_green">
+        <static>true</static>
+        <link name="link">
+          <visual name="visual">
+            <geometry>
+              <box>
+                <size>4.5 12 0.01</size>
+              </box>
+            </geometry>
+            <material>
+              <ambient>0.6 0.9 0.2 1</ambient>
+              <diffuse>0.6 0.9 0.2 1</diffuse>
+              <specular>0.1 0.1 0.1 1</specular>
+            </material>
+          </visual>
+        </link>
+        <pose>2.25 6 0.005 0 0 0</pose>
+      </model>
+
+      <!-- GRAY ZONE (Competition Area): 19.5m x 12m - Right side -->
+      <model name="zone_gray">
+        <static>true</static>
+        <link name="link">
+          <visual name="visual">
+            <geometry>
+              <box>
+                <size>19.5 12 0.01</size>
+              </box>
+            </geometry>
+            <material>
+              <ambient>1 1 1 1</ambient>
+              <diffuse>1 1 1 1</diffuse>
+              <specular>0.1 0.1 0.1 1</specular>
+              <pbr>
+                <metal>
+                  <albedo_map>model://uav_contest_2026/materials/textures/Ground.png</albedo_map>
+                  <metalness>0.0</metalness>
+                  <roughness>0.9</roughness>
+                </metal>
+              </pbr>
+            </material>
+          </visual>
+        </link>
+        <pose>14.25 6 0.006 0 0 0</pose>
+      </model>
+
+      <!-- HELIPAD in Safe Zone -->
+      <model name="helipad">
+        <static>true</static>
+        <link name="link">
+          <visual name="visual">
+            <geometry>
+              <box>
+                <size>1.5 1.5 0.01</size>
+              </box>
+            </geometry>
+            <material>
+              <ambient>1 1 1 1</ambient>
+              <diffuse>1 1 1 1</diffuse>
+              <specular>0.1 0.1 0.1 1</specular>
+              <pbr>
+                <metal>
+                  <albedo_map>model://uav_contest_2026/materials/textures/Heliport.png</albedo_map>
+                  <metalness>0.0</metalness>
+                  <roughness>0.8</roughness>
+                </metal>
+              </pbr>
+            </material>
+          </visual>
+        </link>
+        <pose>22.25 6 0.008 0 0 1.5708</pose>
+      </model>
+
+      <!-- SZ Marker (Green square) -->
+      <model name="sz_marker">
+        <static>true</static>
+        <link name="link">
+          <visual name="visual">
+            <geometry>
+              <box>
+                <size>1.0 1.0 0.01</size>
+              </box>
+            </geometry>
+            <material>
+              <ambient>0.2 0.8 0.2 1</ambient>
+              <diffuse>0.2 0.8 0.2 1</diffuse>
+              <specular>0.1 0.1 0.1 1</specular>
+            </material>
+          </visual>
+        </link>
+        <pose>22.25 3.5 0.008 0 0 0</pose>
+      </model>
+
+      <!-- FIRE POINTS (F1-F5) - Center area -->
+      <!-- F1: Red (main, right) -->
+      <!-- F1: 1000mm Red Target #FC2A1B, height 6cm -->
+      <model name="f1">
+        <static>true</static>
+        <link name="link">
+          <!-- Black perimeter mat (slightly larger) -->
+          <visual name="perimeter">
+            <geometry>
+              <cylinder>
+                <radius>0.55</radius>
+                <length>0.06</length>
+              </cylinder>
+            </geometry>
+            <material>
+              <ambient>0.05 0.05 0.05 1</ambient>
+              <diffuse>0.05 0.05 0.05 1</diffuse>
+              <specular>0.1 0.1 0.1 1</specular>
+            </material>
+          </visual>
+          <!-- Red impact area (1000mm diameter) -->
+          <visual name="target">
+            <pose>0 0 0.001 0 0 0</pose>
+            <geometry>
+              <cylinder>
+                <radius>0.5</radius>
+                <length>0.06</length>
+              </cylinder>
+            </geometry>
+            <material>
+              <!-- #FC2A1B = RGB(252, 42, 27) = (0.988, 0.165, 0.106) -->
+              <ambient>0.988 0.165 0.106 1</ambient>
+              <diffuse>0.988 0.165 0.106 1</diffuse>
+              <specular>0.2 0.2 0.2 1</specular>
+            </material>
+          </visual>
+          <!-- Collision for ball detection -->
+          <collision name="target_collision">
+            <pose>0 0 0.001 0 0 0</pose>
+            <geometry>
+              <cylinder>
+                <radius>0.5</radius>
+                <length>0.06</length>
+              </cylinder>
+            </geometry>
+          </collision>
+          <!-- Contact sensor to detect ball hits -->
+          <sensor name="sensor_contact" type="contact">
+            <always_on>true</always_on>
+            <update_rate>1000</update_rate>
+            <contact>
+              <collision>target_collision</collision>
+            </contact>
+          </sensor>
+        </link>
+        <pose>13.5 6 0.03 0 0 0</pose>
+      </model>
+
+      <!-- F2: Red (main, left) -->
+      <!-- F2: 1000mm Red Target #FC2A1B, height 6cm -->
+      <model name="f2">
+        <static>true</static>
+        <link name="link">
+          <!-- Black perimeter mat (slightly larger) -->
+          <visual name="perimeter">
+            <geometry>
+              <cylinder>
+                <radius>0.55</radius>
+                <length>0.06</length>
+              </cylinder>
+            </geometry>
+            <material>
+              <ambient>0.05 0.05 0.05 1</ambient>
+              <diffuse>0.05 0.05 0.05 1</diffuse>
+              <specular>0.1 0.1 0.1 1</specular>
+            </material>
+          </visual>
+          <!-- Red impact area (1000mm diameter) -->
+          <visual name="target">
+            <pose>0 0 0.001 0 0 0</pose>
+            <geometry>
+              <cylinder>
+                <radius>0.5</radius>
+                <length>0.06</length>
+              </cylinder>
+            </geometry>
+            <material>
+              <!-- #FC2A1B = RGB(252, 42, 27) = (0.988, 0.165, 0.106) -->
+              <ambient>0.988 0.165 0.106 1</ambient>
+              <diffuse>0.988 0.165 0.106 1</diffuse>
+              <specular>0.2 0.2 0.2 1</specular>
+            </material>
+          </visual>
+          <!-- Collision for ball detection -->
+          <collision name="target_collision">
+            <pose>0 0 0.001 0 0 0</pose>
+            <geometry>
+              <cylinder>
+                <radius>0.5</radius>
+                <length>0.06</length>
+              </cylinder>
+            </geometry>
+          </collision>
+          <!-- Contact sensor to detect ball hits -->
+          <sensor name="sensor_contact" type="contact">
+            <contact>
+              <collision>target_collision</collision>
+            </contact>
+          </sensor>
+        </link>
+        <pose>11 6 0.03 0 0 0</pose>
+      </model>
+
+      <!-- F3: 600mm Yellow Target #FAFF37, height 6cm -->
+      <model name="f3">
+        <static>true</static>
+        <link name="link">
+          <!-- Black perimeter mat -->
+          <visual name="perimeter">
+            <geometry>
+              <cylinder>
+                <radius>0.35</radius>
+                <length>0.06</length>
+              </cylinder>
+            </geometry>
+            <material>
+              <ambient>0.05 0.05 0.05 1</ambient>
+              <diffuse>0.05 0.05 0.05 1</diffuse>
+              <specular>0.1 0.1 0.1 1</specular>
+            </material>
+          </visual>
+          <!-- Yellow impact area (600mm diameter) -->
+          <visual name="target">
+            <pose>0 0 0.001 0 0 0</pose>
+            <geometry>
+              <cylinder>
+                <radius>0.3</radius>
+                <length>0.06</length>
+              </cylinder>
+            </geometry>
+            <material>
+              <!-- #FAFF37 = RGB(250, 255, 55) = (0.980, 1.0, 0.216) -->
+              <ambient>0.980 1.0 0.216 1</ambient>
+              <diffuse>0.980 1.0 0.216 1</diffuse>
+              <specular>0.2 0.2 0.2 1</specular>
+            </material>
+          </visual>
+          <!-- Collision for ball detection -->
+          <collision name="target_collision">
+            <pose>0 0 0.001 0 0 0</pose>
+            <geometry>
+              <cylinder>
+                <radius>0.3</radius>
+                <length>0.06</length>
+              </cylinder>
+            </geometry>
+          </collision>
+          <!-- Contact sensor to detect ball hits -->
+          <sensor name="sensor_contact" type="contact">
+            <contact>
+              <collision>target_collision</collision>
+            </contact>
+          </sensor>
+        </link>
+        <pose>11 3.5 0.03 0 0 0</pose>
+      </model>
+
+      <!-- F4: 600mm Yellow Target #FAFF37, height 6cm -->
+      <model name="f4">
+        <static>true</static>
+        <link name="link">
+          <!-- Black perimeter mat -->
+          <visual name="perimeter">
+            <geometry>
+              <cylinder>
+                <radius>0.35</radius>
+                <length>0.06</length>
+              </cylinder>
+            </geometry>
+            <material>
+              <ambient>0.05 0.05 0.05 1</ambient>
+              <diffuse>0.05 0.05 0.05 1</diffuse>
+              <specular>0.1 0.1 0.1 1</specular>
+            </material>
+          </visual>
+          <!-- Yellow impact area (600mm diameter) -->
+          <visual name="target">
+            <pose>0 0 0.001 0 0 0</pose>
+            <geometry>
+              <cylinder>
+                <radius>0.3</radius>
+                <length>0.06</length>
+              </cylinder>
+            </geometry>
+            <material>
+              <!-- #FAFF37 = RGB(250, 255, 55) = (0.980, 1.0, 0.216) -->
+              <ambient>0.980 1.0 0.216 1</ambient>
+              <diffuse>0.980 1.0 0.216 1</diffuse>
+              <specular>0.2 0.2 0.2 1</specular>
+            </material>
+          </visual>
+          <!-- Collision for ball detection -->
+          <collision name="target_collision">
+            <pose>0 0 0.001 0 0 0</pose>
+            <geometry>
+              <cylinder>
+                <radius>0.3</radius>
+                <length>0.06</length>
+              </cylinder>
+            </geometry>
+          </collision>
+          <!-- Contact sensor to detect ball hits -->
+          <sensor name="sensor_contact" type="contact">
+            <contact>
+              <collision>target_collision</collision>
+            </contact>
+          </sensor>
+        </link>
+        <pose>11 8.5 0.03 0 0 0</pose>
+      </model>
+
+      <!-- F5: 400mm Blue Target #3C00FB, height 6cm -->
+      <model name="f5">
+        <static>true</static>
+        <link name="link">
+          <!-- Black perimeter mat -->
+          <visual name="perimeter">
+            <geometry>
+              <cylinder>
+                <radius>0.25</radius>
+                <length>0.06</length>
+              </cylinder>
+            </geometry>
+            <material>
+              <ambient>0.05 0.05 0.05 1</ambient>
+              <diffuse>0.05 0.05 0.05 1</diffuse>
+              <specular>0.1 0.1 0.1 1</specular>
+            </material>
+          </visual>
+          <!-- Blue impact area (400mm diameter) -->
+          <visual name="target">
+            <pose>0 0 0.001 0 0 0</pose>
+            <geometry>
+              <cylinder>
+                <radius>0.2</radius>
+                <length>0.06</length>
+              </cylinder>
+            </geometry>
+            <material>
+              <!-- Pure blue - adjusted to look more blue, less purple -->
+              <ambient>0.0 0.2 0.9 1</ambient>
+              <diffuse>0.0 0.2 0.9 1</diffuse>
+              <specular>0.2 0.2 0.2 1</specular>
+            </material>
+          </visual>
+          <!-- Collision for ball detection -->
+          <collision name="target_collision">
+            <pose>0 0 0.001 0 0 0</pose>
+            <geometry>
+              <cylinder>
+                <radius>0.2</radius>
+                <length>0.06</length>
+              </cylinder>
+            </geometry>
+          </collision>
+          <!-- Contact sensor to detect ball hits -->
+          <sensor name="sensor_contact" type="contact">
+            <contact>
+              <collision>target_collision</collision>
+            </contact>
+          </sensor>
+        </link>
+        <pose>8.5 6 0.03 0 0 0</pose>
+      </model>
+
+      <!-- TARGET ZONES (TZ1-TZ4) - Orange circles -->
+      <!-- TZ1: Top right -->
+      <!-- TZ1: Target Zone with 1.7m obstacle mesh -->
+      <model name="tz1">
+        <static>true</static>
+        <link name="link">
+          <!-- Base marker on ground -->
+          <visual name="base_marker">
+            <geometry>
+              <cylinder>
+                <radius>0.8</radius>
+                <length>0.01</length>
+              </cylinder>
+            </geometry>
+            <material>
+              <ambient>1.0 0.6 0.0 1</ambient>
+              <diffuse>1.0 0.6 0.0 1</diffuse>
+              <specular>0.2 0.2 0.2 1</specular>
+            </material>
+          </visual>
+          <!-- 3D Obstacle mesh with texture -->
+          <visual name="obstacle">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/obstacle-1m7.dae</uri>
+              </mesh>
+            </geometry>
+            <material>
+              <ambient>1 1 1 1</ambient>
+              <diffuse>1 1 1 1</diffuse>
+              <specular>0.3 0.3 0.3 1</specular>
+              <pbr>
+                <metal>
+                  <albedo_map>model://uav_contest_2026/materials/textures/racing.png</albedo_map>
+                  <metalness>0.0</metalness>
+                  <roughness>0.7</roughness>
+                </metal>
+              </pbr>
+            </material>
+          </visual>
+          <!-- Collision meshes (convex decomposition) -->
+          <collision name="collision_0">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-1m7_collision_0.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_1">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-1m7_collision_1.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_2">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-1m7_collision_2.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_3">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-1m7_collision_3.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_4">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-1m7_collision_4.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_5">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-1m7_collision_5.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_6">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-1m7_collision_6.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_7">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-1m7_collision_7.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_8">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-1m7_collision_8.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_9">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-1m7_collision_9.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_10">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-1m7_collision_10.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_11">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-1m7_collision_11.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_12">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-1m7_collision_12.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_13">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-1m7_collision_13.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+        </link>
+        <pose>16.5 9.5 0.008 0 0 0</pose>
+      </model>
+
+      <!-- TZ2: Target Zone with 2.2m obstacle mesh (center at 2.2m height) -->
+      <model name="tz2">
+        <static>true</static>
+        <link name="link">
+          <!-- Base marker on ground -->
+          <visual name="base_marker">
+            <geometry>
+              <cylinder>
+                <radius>0.8</radius>
+                <length>0.01</length>
+              </cylinder>
+            </geometry>
+            <material>
+              <ambient>1.0 0.6 0.0 1</ambient>
+              <diffuse>1.0 0.6 0.0 1</diffuse>
+              <specular>0.2 0.2 0.2 1</specular>
+            </material>
+          </visual>
+          <!-- 3D Obstacle mesh -->
+          <visual name="obstacle">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/obstacle-2m2.dae</uri>
+              </mesh>
+            </geometry>
+            <material>
+              <ambient>1 1 1 1</ambient>
+              <diffuse>1 1 1 1</diffuse>
+              <specular>0.3 0.3 0.3 1</specular>
+              <pbr>
+                <metal>
+                  <albedo_map>model://uav_contest_2026/materials/textures/racing1.png</albedo_map>
+                  <metalness>0.0</metalness>
+                  <roughness>0.7</roughness>
+                </metal>
+              </pbr>
+            </material>
+          </visual>
+          <!-- Collision meshes (convex decomposition) -->
+          <collision name="collision_0">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-2m2_collision_0.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_1">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-2m2_collision_1.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_2">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-2m2_collision_2.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_3">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-2m2_collision_3.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_4">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-2m2_collision_4.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_5">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-2m2_collision_5.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_6">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-2m2_collision_6.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_7">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-2m2_collision_7.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_8">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-2m2_collision_8.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_9">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-2m2_collision_9.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_10">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-2m2_collision_10.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_11">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-2m2_collision_11.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_12">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-2m2_collision_12.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+        </link>
+        <pose>6.5 9.5 0.008 0 0 0</pose>
+      </model>
+
+      <!-- TZ3: Target Zone with 1.7m obstacle mesh (center at 1.6m height) -->
+      <model name="tz3">
+        <static>true</static>
+        <link name="link">
+          <!-- Base marker on ground -->
+          <visual name="base_marker">
+            <geometry>
+              <cylinder>
+                <radius>0.8</radius>
+                <length>0.01</length>
+              </cylinder>
+            </geometry>
+            <material>
+              <ambient>1.0 0.6 0.0 1</ambient>
+              <diffuse>1.0 0.6 0.0 1</diffuse>
+              <specular>0.2 0.2 0.2 1</specular>
+            </material>
+          </visual>
+          <!-- 3D Obstacle mesh -->
+          <visual name="obstacle">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/obstacle-1m7.dae</uri>
+              </mesh>
+            </geometry>
+            <material>
+              <ambient>1 1 1 1</ambient>
+              <diffuse>1 1 1 1</diffuse>
+              <specular>0.3 0.3 0.3 1</specular>
+              <pbr>
+                <metal>
+                  <albedo_map>model://uav_contest_2026/materials/textures/racing.png</albedo_map>
+                  <metalness>0.0</metalness>
+                  <roughness>0.7</roughness>
+                </metal>
+              </pbr>
+            </material>
+          </visual>
+          <!-- Collision meshes (convex decomposition) -->
+          <collision name="collision_0">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-1m7_collision_0.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_1">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-1m7_collision_1.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_2">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-1m7_collision_2.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_3">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-1m7_collision_3.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_4">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-1m7_collision_4.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_5">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-1m7_collision_5.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_6">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-1m7_collision_6.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_7">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-1m7_collision_7.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_8">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-1m7_collision_8.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_9">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-1m7_collision_9.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_10">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-1m7_collision_10.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_11">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-1m7_collision_11.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_12">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-1m7_collision_12.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_13">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-1m7_collision_13.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+        </link>
+        <pose>6.5 2.5 0.008 0 0 0</pose>
+      </model>
+
+      <!-- TZ4: Target Zone with 2.2m obstacle mesh (center at 2.2m height) -->
+      <model name="tz4">
+        <static>true</static>
+        <link name="link">
+          <!-- Base marker on ground -->
+          <visual name="base_marker">
+            <geometry>
+              <cylinder>
+                <radius>0.8</radius>
+                <length>0.01</length>
+              </cylinder>
+            </geometry>
+            <material>
+              <ambient>1.0 0.6 0.0 1</ambient>
+              <diffuse>1.0 0.6 0.0 1</diffuse>
+              <specular>0.2 0.2 0.2 1</specular>
+            </material>
+          </visual>
+          <!-- 3D Obstacle mesh -->
+          <visual name="obstacle">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/obstacle-2m2.dae</uri>
+              </mesh>
+            </geometry>
+            <material>
+              <ambient>1 1 1 1</ambient>
+              <diffuse>1 1 1 1</diffuse>
+              <specular>0.3 0.3 0.3 1</specular>
+              <pbr>
+                <metal>
+                  <albedo_map>model://uav_contest_2026/materials/textures/racing1.png</albedo_map>
+                  <metalness>0.0</metalness>
+                  <roughness>0.7</roughness>
+                </metal>
+              </pbr>
+            </material>
+          </visual>
+          <!-- Collision meshes (convex decomposition) -->
+          <collision name="collision_0">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-2m2_collision_0.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_1">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-2m2_collision_1.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_2">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-2m2_collision_2.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_3">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-2m2_collision_3.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_4">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-2m2_collision_4.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_5">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-2m2_collision_5.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_6">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-2m2_collision_6.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_7">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-2m2_collision_7.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_8">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-2m2_collision_8.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_9">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-2m2_collision_9.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_10">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-2m2_collision_10.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_11">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-2m2_collision_11.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_12">
+            <pose>0 0 0 0 0 1.5708</pose>
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/obstacle-2m2_collision_12.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+        </link>
+        <pose>16.5 2.5 0.008 0 0 0</pose>
+      </model>
+
+      <!-- VEHICLE MARKERS (V1-V3) - Pink squares in green zone -->
+      <!-- V1: Bottom -->
+      <model name="v1">
+        <static>true</static>
+        <link name="link">
+          <visual name="visual">
+            <geometry>
+              <box>
+                <size>1.0 1.0 0.01</size>
+              </box>
+            </geometry>
+            <material>
+              <ambient>0.9 0.5 0.9 1</ambient>
+              <diffuse>0.9 0.5 0.9 1</diffuse>
+              <specular>0.2 0.2 0.2 1</specular>
+            </material>
+          </visual>
+        </link>
+        <pose>3 2.5 0.008 0 0 0</pose>
+      </model>
+
+      <!-- V2: Middle -->
+      <model name="v2">
+        <static>true</static>
+        <link name="link">
+          <visual name="visual">
+            <geometry>
+              <box>
+                <size>1.0 1.0 0.01</size>
+              </box>
+            </geometry>
+            <material>
+              <ambient>0.9 0.5 0.9 1</ambient>
+              <diffuse>0.9 0.5 0.9 1</diffuse>
+              <specular>0.2 0.2 0.2 1</specular>
+            </material>
+          </visual>
+        </link>
+        <pose>3 6 0.008 0 0 0</pose>
+      </model>
+
+      <!-- V3: Top -->
+      <model name="v3">
+        <static>true</static>
+        <link name="link">
+          <visual name="visual">
+            <geometry>
+              <box>
+                <size>1.0 1.0 0.01</size>
+              </box>
+            </geometry>
+            <material>
+              <ambient>0.9 0.5 0.9 1</ambient>
+              <diffuse>0.9 0.5 0.9 1</diffuse>
+              <specular>0.2 0.2 0.2 1</specular>
+            </material>
+          </visual>
+        </link>
+        <pose>3 9.5 0.008 0 0 0</pose>
+      </model>
+
+      <!-- RESCUED MODELS - Can be picked up by drone -->
+      <!-- 0.3-meter cube, 100 grams, with circle hook on top -->
+      <!-- Inertia for 0.1kg cube with side 0.3m: I = (1/6)*m*a^2 = (1/6)*0.1*0.09 = 0.0015 -->
+
+      <!-- Rescued 1 at V1 position -->
+      <model name="rescued_1">
+        <pose>3 2.5 0.15 0 0 0</pose>
+        <link name="link">
+          <inertial>
+            <mass>0.1</mass>
+            <inertia>
+              <ixx>0.0015</ixx>
+              <iyy>0.0015</iyy>
+              <izz>0.0015</izz>
+            </inertia>
+          </inertial>
+          <collision name="collision_0">
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/rescued_collision_0.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_1">
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/rescued_collision_1.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_2">
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/rescued_collision_2.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_3">
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/rescued_collision_3.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_4">
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/rescued_collision_4.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_5">
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/rescued_collision_5.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_6">
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/rescued_collision_6.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_7">
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/rescued_collision_7.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_8">
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/rescued_collision_8.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_9">
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/rescued_collision_9.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_10">
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/rescued_collision_10.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <visual name="visual">
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/rescued.dae</uri>
+              </mesh>
+            </geometry>
+            <material>
+              <ambient>0.5 0.5 0.5 1</ambient>
+              <diffuse>0.5 0.5 0.5 1</diffuse>
+              <specular>0.3 0.3 0.3 1</specular>
+            </material>
+          </visual>
+        </link>
+      </model>
+
+      <!-- Rescued 2 at V2 position -->
+      <model name="rescued_2">
+        <pose>3 6 0.15 0 0 0</pose>
+        <link name="link">
+          <inertial>
+            <mass>0.1</mass>
+            <inertia>
+              <ixx>0.0015</ixx>
+              <iyy>0.0015</iyy>
+              <izz>0.0015</izz>
+            </inertia>
+          </inertial>
+          <collision name="collision_0">
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/rescued_collision_0.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_1">
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/rescued_collision_1.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_2">
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/rescued_collision_2.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_3">
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/rescued_collision_3.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_4">
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/rescued_collision_4.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_5">
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/rescued_collision_5.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_6">
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/rescued_collision_6.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_7">
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/rescued_collision_7.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_8">
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/rescued_collision_8.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_9">
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/rescued_collision_9.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_10">
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/rescued_collision_10.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <visual name="visual">
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/rescued.dae</uri>
+              </mesh>
+            </geometry>
+            <material>
+              <ambient>0.5 0.5 0.5 1</ambient>
+              <diffuse>0.5 0.5 0.5 1</diffuse>
+              <specular>0.3 0.3 0.3 1</specular>
+            </material>
+          </visual>
+        </link>
+      </model>
+
+      <!-- Rescued 3 at V3 position -->
+      <model name="rescued_3">
+        <pose>3 9.5 0.15 0 0 0</pose>
+        <link name="link">
+          <inertial>
+            <mass>0.1</mass>
+            <inertia>
+              <ixx>0.0015</ixx>
+              <iyy>0.0015</iyy>
+              <izz>0.0015</izz>
+            </inertia>
+          </inertial>
+          <collision name="collision_0">
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/rescued_collision_0.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_1">
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/rescued_collision_1.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_2">
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/rescued_collision_2.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_3">
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/rescued_collision_3.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_4">
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/rescued_collision_4.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_5">
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/rescued_collision_5.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_6">
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/rescued_collision_6.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_7">
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/rescued_collision_7.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_8">
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/rescued_collision_8.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_9">
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/rescued_collision_9.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <collision name="collision_10">
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/collisions/rescued_collision_10.stl</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <visual name="visual">
+            <geometry>
+              <mesh>
+                <uri>model://uav_contest_2026/meshes/rescued.dae</uri>
+              </mesh>
+            </geometry>
+            <material>
+              <ambient>0.5 0.5 0.5 1</ambient>
+              <diffuse>0.5 0.5 0.5 1</diffuse>
+              <specular>0.3 0.3 0.3 1</specular>
+            </material>
+          </visual>
+        </link>
+      </model>
+
+      <!-- Competition area border lines -->
+      <model name="border_line">
+        <static>true</static>
+        <link name="link">
+          <!-- Top border -->
+          <visual name="top">
+            <pose>12 12 0.007 0 0 0</pose>
+            <geometry>
+              <box>
+                <size>24 0.05 0.01</size>
+              </box>
+            </geometry>
+            <material>
+              <ambient>1 1 1 1</ambient>
+              <diffuse>1 1 1 1</diffuse>
+              <specular>0.3 0.3 0.3 1</specular>
+            </material>
+          </visual>
+          <!-- Bottom border -->
+          <visual name="bottom">
+            <pose>12 0 0.007 0 0 0</pose>
+            <geometry>
+              <box>
+                <size>24 0.05 0.01</size>
+              </box>
+            </geometry>
+            <material>
+              <ambient>1 1 1 1</ambient>
+              <diffuse>1 1 1 1</diffuse>
+              <specular>0.3 0.3 0.3 1</specular>
+            </material>
+          </visual>
+          <!-- Left border -->
+          <visual name="left">
+            <pose>0 6 0.007 0 0 0</pose>
+            <geometry>
+              <box>
+                <size>0.05 12 0.01</size>
+              </box>
+            </geometry>
+            <material>
+              <ambient>1 1 1 1</ambient>
+              <diffuse>1 1 1 1</diffuse>
+              <specular>0.3 0.3 0.3 1</specular>
+            </material>
+          </visual>
+          <!-- Right border -->
+          <visual name="right">
+            <pose>24 6 0.007 0 0 0</pose>
+            <geometry>
+              <box>
+                <size>0.05 12 0.01</size>
+              </box>
+            </geometry>
+            <material>
+              <ambient>1 1 1 1</ambient>
+              <diffuse>1 1 1 1</diffuse>
+              <specular>0.3 0.3 0.3 1</specular>
+            </material>
+          </visual>
+          <!-- Green/Gray divider -->
+          <visual name="divider">
+            <pose>4.5 6 0.007 0 0 0</pose>
+            <geometry>
+              <box>
+                <size>0.05 12 0.01</size>
+              </box>
+            </geometry>
+            <material>
+              <ambient>1 1 1 1</ambient>
+              <diffuse>1 1 1 1</diffuse>
+              <specular>0.3 0.3 0.3 1</specular>
+            </material>
+          </visual>
+          <!-- Safe zone divider -->
+          <visual name="safe_zone_divider">
+            <pose>20.5 6 0.007 0 0 0</pose>
+            <geometry>
+              <box>
+                <size>0.05 12 0.01</size>
+              </box>
+            </geometry>
+            <material>
+              <ambient>1 1 1 1</ambient>
+              <diffuse>1 1 1 1</diffuse>
+              <specular>0.3 0.3 0.3 1</specular>
+            </material>
+          </visual>
+          <!-- Line auto divider -->
+          <visual name="line_auto_divider">
+            <pose>17.5 6 0.007 0 0 1.5708</pose>
+            <geometry>
+              <box>
+                <size>0.15 8 0.01</size>
+              </box>
+            </geometry>
+            <material>
+              <ambient>1 1 1 1</ambient>
+              <diffuse>1 1 1 1</diffuse>
+              <specular>0.3 0.3 0.3 1</specular>
+            </material>
+          </visual>
+        </link>
+        <pose>0 0 0 0 0 0</pose>
+      </model>
+    </model>
+
+    <!-- Sun light -->
+    <light name="sunUTC" type="directional">
+      <pose>0 0 500 0 0 0</pose>
+      <cast_shadows>true</cast_shadows>
+      <intensity>1</intensity>
+      <direction>0.001 0.625 -0.78</direction>
+      <diffuse>0.904 0.904 0.904 1</diffuse>
+      <specular>0.271 0.271 0.271 1</specular>
+      <attenuation>
+        <range>2000</range>
+        <linear>0</linear>
+        <constant>1</constant>
+        <quadratic>0</quadratic>
+      </attenuation>
+      <spot>
+        <inner_angle>0</inner_angle>
+        <outer_angle>0</outer_angle>
+        <falloff>0</falloff>
+      </spot>
+    </light>
+
+    <spherical_coordinates>
+      <surface_model>EARTH_WGS84</surface_model>
+      <world_frame_orientation>ENU</world_frame_orientation>
+      <latitude_deg>10.851839568519779</latitude_deg>
+      <longitude_deg>106.77210871747029</longitude_deg>
+      <elevation>0</elevation>
+    </spherical_coordinates>
+
+  </world>
+</sdf>

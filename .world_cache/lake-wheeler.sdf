@@ -1,0 +1,56 @@
+<?xml version="1.0"?>
+<sdf version="1.9">
+    <world name="lake-wheeler">
+        <gui fullscreen='0'>
+            <camera name='camera'>
+                <pose>260 0 100 0 0 0</pose>
+                <view_controller>orbit</view_controller>
+            </camera>
+        </gui>
+
+        <physics type="ode">
+            <max_step_size>0.004</max_step_size>
+            <real_time_factor>1.0</real_time_factor>
+            <real_time_update_rate>250</real_time_update_rate>
+        </physics>
+
+        <gravity>0 0 -9.8</gravity>
+        <magnetic_field>6e-06 2.3e-05 -4.2e-05</magnetic_field>
+        <atmosphere type="adiabatic" />
+
+        <light name="sun" type="directional">
+            <pose>3 2 10 0 -0 0</pose>
+            <cast_shadows>false</cast_shadows>
+            <direction>0.001 0.625 -0.78</direction>
+            <diffuse>1.0 1.0 1.0 1.0</diffuse>
+            <specular>1.0 1.0 1.0 1.0</specular>
+            <intensity>1.5</intensity>
+
+            <attenuation>
+                <range>2000</range>
+                <constant>1</constant>
+                <linear>0</linear>
+                <quadratic>0</quadratic>
+            </attenuation>
+
+            <spot>
+                <inner_angle>0</inner_angle>
+                <outer_angle>0</outer_angle>
+                <falloff>0</falloff>
+            </spot>
+        </light>
+
+        <include>
+            <uri>model://lake-wheeler</uri>
+            <pose>-605 0 21.52 1.57 0 0</pose>
+        </include>
+
+        <spherical_coordinates>
+            <surface_model>EARTH_WGS84</surface_model>
+            <world_frame_orientation>ENU</world_frame_orientation>
+            <latitude_deg>10.77923939246397</latitude_deg>
+            <longitude_deg>106.7124930421324</longitude_deg>
+            <elevation>0</elevation>
+        </spherical_coordinates>
+    </world>
+</sdf>
