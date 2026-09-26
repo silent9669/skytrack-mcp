@@ -490,29 +490,65 @@ async def control_uav_flight(
 
 @mcp.tool()
 def get_uav_python_sdk_reference() -> Dict[str, Any]:
-    """Return function signatures, coordinate conventions, and verified templates for SkyTrack Python SDK."""
+    """Return function signatures, coordinate conventions, and verified templates for SkyTrack Python SDK
+    (`GetSkyTrack/skytrack-autonomy-example` develop branch reference).
+    """
     return {
         "sdk_module": "local_planner",
         "execution_container": "skytrack-simulation-skytrack-autonomy-1",
+        "known_issues_and_rules": [
+            "1. Always start with `from __future__ import annotations` and define `UPPER_CASE` mission constants.",
+            "2. `takeoff(alt_m=...)` and `fly_to(north=..., east=..., alt_m=...)` require `alt_m` (positive meters up).",
+            "3. `fly_to` supports `mode='transit' | 'coverage' | 'direct'` and `replan_mode='fast' | 'slow'`.",
+            "4. Always `yield brake()` before `capture()` and before `land()` to eliminate motion blur and overshoot.",
+            "5. For video recording, register `drone.add_sense(CameraSense())` and `drone.add_service(VideoRecorder(output_dir='~/.ros/recordings', fps=10.0))`, add `'camera'` to `scenario.requires_senses`, and call `rec = ctx.services.recorder; rec.start(clip='...'); ...; rec.stop()`.",
+            "6. `ctx.senses.battery.percent` is on a 0–100 scale (e.g. `20.0` means 20%, NOT `0.20`).",
+        ],
         "function_signatures": {
             "boot_drone": "boot_drone() -> ContextManager[Drone]",
             "takeoff": "takeoff(*, alt_m: float = 3.0, name: Optional[str] = None) -> SkillStep",
-            "fly_to": "fly_to(x=None, y=None, z=None, *, north: Optional[float] = None, east: Optional[float] = None, alt_m: Optional[float] = None, direct: bool = False, target_speed: Optional[float] = None, name: Optional[str] = None) -> SkillStep",
-            "orbit": "orbit(center=None, *, center_north: Optional[float] = None, center_east: Optional[float] = None, alt_m: Optional[float] = None, radius_m: float = 5.0, duration_s: float = 60.0) -> SkillStep",
+            "fly_to": "fly_to(x=None, y=None, z=None, *, north: Optional[float] = None, east: Optional[float] = None, alt_m: Optional[float] = None, direct: bool = False, mode: Optional[str] = None, replan_mode: Optional[str] = None, target_speed: Optional[float] = None, name: Optional[str] = None) -> SkillStep",
+            "orbit": "orbit(center=None, *, center_north: Optional[float] = None, center_east: Optional[float] = None, alt_m: Optional[float] = None, radius_m: float = 5.0, period_s: float = 20.0, duration_s: float = 60.0) -> SkillStep",
+            "helix": "helix(center=None, *, center_north: Optional[float] = None, center_east: Optional[float] = None, alt_m: Optional[float] = None, alt_m_end: Optional[float] = None, radius_m: float = 5.0, duration_s: float = 60.0) -> SkillStep",
+            "yaw_to": "yaw_to(face=None, *, north: Optional[float] = None, east: Optional[float] = None, name: str = 'yaw_to') -> SkillStep",
             "capture": "capture(*, output_dir: str = '~/.ros/captures', filename: Optional[str] = None) -> SkillStep",
-            "brake": "brake() -> SkillStep",
-            "land": "land() -> SkillStep",
+            "brake": "brake(*, name: str = 'brake') -> SkillStep",
+            "land": "land(*, name: str = 'land') -> SkillStep",
+            "CameraSense": "CameraSense()",
+            "VideoRecorder": "VideoRecorder(output_dir: str = '~/.ros/recordings', fps: float = 10.0)",
+            "Snapshot": "Snapshot(output_dir: str = '~/.ros/captures')",
+            "Sprayer": "Sprayer()",
+            "Detector": "Detector(model_name: str = 'yolov8n')",
         },
         "example_script": (
+            'from __future__ import annotations\n'
             'from typing import Any, Iterator\n'
-            'from local_planner import boot_drone, takeoff, fly_to, land\n\n'
+            'from local_planner import (\n'
+            '    CameraSense,\n'
+            '    VideoRecorder,\n'
+            '    boot_drone,\n'
+            '    brake,\n'
+            '    capture,\n'
+            '    fly_to,\n'
+            '    land,\n'
+            '    takeoff,\n'
+            ')\n\n'
+            'ALTITUDE_M = 2.5\n\n'
             'def scenario(ctx: Any) -> Iterator[Any]:\n'
-            '    yield takeoff(alt_m=2.5)\n'
-            '    yield fly_to(north=5.0, east=0.0, alt_m=2.5)\n'
+            '    rec = ctx.services.recorder\n'
+            '    yield takeoff(alt_m=ALTITUDE_M)\n'
+            '    rec.start(clip="mission_recording")\n'
+            '    yield fly_to(north=5.0, east=0.0, alt_m=ALTITUDE_M, mode="transit")\n'
+            '    yield brake()\n'
+            '    yield capture(filename="wp_1.jpg")\n'
+            '    rec.stop()\n'
+            '    yield brake()\n'
             '    yield land()\n\n'
-            'scenario.requires_senses = ["pose", "obstacle", "status"]\n\n'
+            'scenario.requires_senses = ["pose", "obstacle", "status", "camera"]\n\n'
             'def main() -> None:\n'
             '    with boot_drone() as drone:\n'
+            '        drone.add_sense(CameraSense())\n'
+            '        drone.add_service(VideoRecorder(output_dir="~/.ros/recordings", fps=10.0))\n'
             '        drone.fly(scenario)\n'
             '        drone.run()\n\n'
             'if __name__ == "__main__":\n'
@@ -583,7 +619,9 @@ def convert_route_to_python_script(
     target_speed: float = 2.0,
     save_to_mission: bool = True,
 ) -> Dict[str, Any]:
-    """Convert visual waypoints into a runnable SkyTrack Python script."""
+    """Convert visual waypoints into a runnable SkyTrack Python script following
+    `GetSkyTrack/skytrack-autonomy-example` conventions (`CameraSense`, `VideoRecorder`, `brake()`).
+    """
     if waypoints is None:
         details = read_mission_details(mission_id=mission_id)
         plan = details.get("plan", {})
@@ -595,9 +633,20 @@ def convert_route_to_python_script(
             for act in seq.get("actions", []):
                 waypoints.append(act)
 
-    steps: List[str] = [f"    yield takeoff(alt_m={takeoff_altitude:.2f})"]
+    has_video = any(
+        wp.get("type") in ("start-recording-video", "stop-recording-video", "recording_on", "recording_off")
+        or wp.get("after_action") in ("start-recording-video", "stop-recording-video", "recording_on", "recording_off")
+        for wp in waypoints
+    )
+
+    steps: List[str] = []
+    if has_video:
+        steps.append("    rec = ctx.services.recorder")
+    steps.append(f"    yield takeoff(alt_m={takeoff_altitude:.2f})")
+
     for idx, wp in enumerate(waypoints, start=1):
         wp_type = wp.get("type", "navigate")
+        after_act = wp.get("after_action")
         if wp_type in ("navigate", "navigation", "waypoint") or ("x" in wp and "y" in wp):
             if "data" in wp and isinstance(wp["data"], list) and len(wp["data"]) == 3:
                 east_x, north_y, alt_z = float(wp["data"][0]), float(wp["data"][1]), float(wp["data"][2])
@@ -608,9 +657,19 @@ def convert_route_to_python_script(
             steps.append(
                 f"    yield fly_to(north={north_y:.3f}, east={east_x:.3f}, alt_m={alt_z:.3f}, target_speed={target_speed:.2f}, name='wp_{idx}')"
             )
-            if wp.get("after_action") in ("take-photo", "snapshot"):
+            if after_act in ("start-recording-video", "recording_on"):
+                steps.append("    rec.start(clip='mission_recording')")
+            elif after_act in ("stop-recording-video", "recording_off"):
+                steps.append("    rec.stop()")
+            elif after_act in ("take-photo", "take-snapshot", "snapshot"):
+                steps.append("    yield brake()")
                 steps.append(f"    yield capture(filename='wp_{idx}.jpg')")
-        elif wp_type in ("take-photo", "snapshot"):
+        elif wp_type in ("start-recording-video", "recording_on"):
+            steps.append("    rec.start(clip='mission_recording')")
+        elif wp_type in ("stop-recording-video", "recording_off"):
+            steps.append("    rec.stop()")
+        elif wp_type in ("take-photo", "take-snapshot", "snapshot"):
+            steps.append("    yield brake()")
             steps.append(f"    yield capture(filename='step_{idx}.jpg')")
 
     steps.append("    yield fly_to(north=0.0, east=0.0, alt_m=" + f"{takeoff_altitude:.2f}, name='return_home')")
@@ -618,11 +677,22 @@ def convert_route_to_python_script(
     steps.append("    yield land()")
 
     body = "\n".join(steps)
+    extra_imports = "    CameraSense,\n    VideoRecorder,\n" if has_video else ""
+    senses_list = '["pose", "obstacle", "status", "camera"]' if has_video else '["pose", "obstacle", "status"]'
+    service_reg = (
+        '        drone.add_sense(CameraSense())\n'
+        '        drone.add_service(VideoRecorder(output_dir="~/.ros/recordings", fps=10.0))\n'
+        if has_video
+        else ""
+    )
+
     script_code = f'''"""Auto-generated SkyTrack UAV Python Script from Route Waypoints."""
+
+from __future__ import annotations
 
 from typing import Any, Iterator
 from local_planner import (
-    boot_drone,
+{extra_imports}    boot_drone,
     takeoff,
     fly_to,
     capture,
@@ -635,12 +705,12 @@ def scenario(ctx: Any) -> Iterator[Any]:
 {body}
 
 
-scenario.requires_senses = ["pose", "obstacle", "status"]
+scenario.requires_senses = {senses_list}
 
 
 def main() -> None:
     with boot_drone() as drone:
-        drone.fly(scenario)
+{service_reg}        drone.fly(scenario)
         drone.run()
 
 
