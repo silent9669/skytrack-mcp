@@ -34,3 +34,4 @@ Or add to `claude_desktop_config.json` / `.mcp.json`:
   }
 }
 ```
+# skytrack-mcp
