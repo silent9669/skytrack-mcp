@@ -1,43 +1,81 @@
-# SkyTrack MCP Integration & Skill System
+# SkyTrack MCP Server
 
-Model Context Protocol (MCP) server and autonomous agent skillbook for **SkyTrack Mission Studio**.
+Model Context Protocol (MCP) server for **SkyTrack Mission Studio**.
 
-This package provides a production-grade autonomous agent operating layer that allows an AI model (Claude, Cursor, Gemini) to understand UAV mission assignments, inspect 3D Gazebo environments, author collision-free visual routes or Python autonomy scripts, manage the simulation runtime, monitor telemetry in real-time, and verify mission outcomes against empirical evidence.
+Enables AI agents (Claude, Cursor, Gemini) to inspect 3D Gazebo environments, author missions (interactive visual routes & ROS 2 Python autonomy scripts), operate the SkyTrack desktop application and Cloud API, execute simulations, and verify flight outcomes against real physical reports.
 
 ---
 
-## 1. Quickstart
+## 1. System Architecture
 
-### Installation
+```
+┌─────────────────────────────────────────────────────────────┐
+│             AI Agent (Claude / Cursor / Gemini)             │
+└──────────────────────────────┬──────────────────────────────┘
+                               │ MCP Protocol (stdio / JSON-RPC)
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  SkyTrack MCP Server Layer                  │
+│  • Mission Authoring: visual route (plan.json) & script.py  │
+│  • 3D Gazebo World Inspection & AABB Collision Guard        │
+│  • Autonomy SDK Levels 1–6 (local_planner / skytrack_autonomy)│
+│  • Cloud BFF API & Local ClientData Storage Synchronization │
+│  • Docker Simulation Stack Lifecycle & MAVLink Telemetry    │
+│  • Authentic Mission Report Harvesting & Rubric Evaluation  │
+└───────────────┬─────────────────────────────┬───────────────┘
+                │                             │
+                ▼                             ▼
+┌──────────────────────────────┐┌──────────────────────────────┐
+│   SkyTrack Desktop & Cloud   ││    Docker Simulation Stack   │
+│  • Electron UI / ClientData  ││  • Gazebo Harmonic 3D Sim    │
+│  • platform.getskytrack.com  ││  • PX4 SITL Flight Controller│
+│  • 3D Map / Code Mission View││  • ROS 2 Jazzy Autonomy      │
+│  • Real-time Flight Status   ││  • GCS Backend (:20002)      │
+└──────────────────────────────┘└──────────────────────────────┘
+```
+
+---
+
+## 2. Installation & Setup
+
+### Prerequisites
+- macOS / Linux
+- Python 3.10+ (Python 3.12 recommended)
+- [uv](https://github.com/astral-sh/uv) or `pip`
+- Docker Desktop (for SkyTrack simulation stack)
+
+### 1. Clone & Install
 ```bash
-git clone https://github.com/phucdang/skytrack-mcp.git
+git clone https://github.com/silent9669/skytrack-mcp.git
 cd skytrack-mcp
+
+# Create virtual environment and install dependencies
 uv venv
 source .venv/bin/activate
 uv pip install -e ".[dev]"
 ```
 
-### Running Tests & Evaluation Suite
+### 2. Verify Installation
 ```bash
-# Run Unit & MCP Wire Protocol Tests
+# Run complete test suite (40 unit, live, regression & benchmark tests)
 pytest -v
 
-# Run the 5 Mandatory Autonomous Closed-Loop Evaluations (EVAL 1 - EVAL 5)
-PYTHONPATH=. python evals/run_all_evals.py
+# Run the Hackathon 2026 Urban Fire Rescue Autonomous Mission
+python evals/run_hackathon_mission.py
 ```
 
-### Adding to Claude Code
+### 3. Add to Claude Code CLI
 ```bash
-claude mcp add skytrack -- /Users/phucdang/Documents/skytrack-mcp/.venv/bin/skytrack-mcp
+claude mcp add skytrack -- $(pwd)/.venv/bin/skytrack-mcp
 ```
 
-### Adding to Claude Desktop
+### 4. Add to Claude Desktop
 Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
     "skytrack": {
-      "command": "/Users/phucdang/Documents/skytrack-mcp/.venv/bin/skytrack-mcp",
+      "command": "/absolute/path/to/skytrack-mcp/.venv/bin/skytrack-mcp",
       "args": []
     }
   }
@@ -46,109 +84,54 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 ---
 
-## 2. Real End-to-End Walkthrough
+## 3. Supported Autonomy Levels (Levels 1–6)
 
-Here is how an AI agent autonomously executes a natural-language mission assignment using this MCP:
+Aligned 100% with `GetSkyTrack/skytrack-autonomy-example`:
 
-### User Request
-> *"In the warehouse world, take off to 3.5m, inspect storage racks 5, 4, and 3, drop one firefighting ball on each rack, return home, land safely, and verify the mission."*
+| Level | Capability | Key Motion Steps, Senses & Services |
+|---|---|---|
+| **Level 1** | **Basics** | `takeoff`, `fly_to(north, east, alt_m)`, `brake`, `land` |
+| **Level 2** | **Flight Patterns** | `orbit`, `helix`, `yaw_to`, `mode="coverage"`, `replan_mode="fast"` |
+| **Level 3** | **Mission Logic** | Sub-generators (`yield from`), `ctx.senses.battery.percent` (0–100) failsafe |
+| **Level 4** | **Camera & Services** | `CameraSense`, `VideoRecorder`, `Snapshot`, `Sprayer`, `Detector` |
+| **Level 5** | **Custom Extensions** | Custom `Sense` (`GeofenceSense`), `Skill` (`HoverForSeconds`), `Service` (`TelemetryLogger`), `ControlMode` |
+| **Level 6** | **Full-Stack Job** | Integrated site survey: lawnmower sweep + video recording + inspection stills + telemetry CSV + RTL |
 
-### Agent Autonomous Execution Steps:
-
-```
-[STEP 1: UNDERSTAND TASK]
-  → skytrack-task-understanding decomposes request:
-    - World: 'warehouse' | Vehicle: 'x500_tennis_balls_no_cam' (5-ball capacity)
-    - Altitude: 3.5m | Speed: 2.0 m/s
-    - Mandatory actions: drop-ball at Rack 5, 4, 3 | End: RTL/Land
-
-[STEP 2: OBSERVE CONTEXT]
-  → Calls `tool_skytrack_get_context()`:
-    - Active Project: 01M11QPK1C3Y5GFNBDADS8H7MC ("UAV")
-    - Active Mission: 01M39QD97035MQVDQ52129D4WJ
-    - Simulator: Healthy (7 containers active)
-
-[STEP 3: WORLD INSPECTION & COLLISION AVOIDANCE]
-  → Calls `tool_skytrack_inspect_world("warehouse", slice_altitude_m=3.5)`:
-    - Identifies storage racks at height 2.83m.
-    - Identifies vertical structural pillar `pole2` at [0.43, -2.34], height 6.04m.
-  → Plans corridor waypoint [2.63, -1.0, 3.5] to safely bypass pole2.
-  → Calls `check_route_collisions("warehouse", waypoints, clearance_m=0.4)`:
-    - Result: `is_collision_free: true`, 0 conflicts.
-
-[STEP 4: MISSION AUTHORING & VALIDATION]
-  → Calls `draw_route_on_map(waypoints, mission_id="01M39QD97035MQVDQ52129D4WJ")`:
-    - Writes 12 actions into `plan.json` (displays immediately on SkyTrack Map UI).
-  → Calls `convert_route_to_python_script(...)`:
-    - Compiles and AST-validates `script.py` using `local_planner` SDK.
-  → Calls `tool_skytrack_validate_mission()`:
-    - Pre-flight check: Valid (0 errors, 3 ball drops within 5-ball capacity).
-
-[STEP 5: SIMULATION & REAL-TIME OBSERVATION]
-  → Calls `execute_route_mission(mission_id=...)`:
-    - GCS Backend (:20002) executes mission on drone.
-  → Calls `tool_skytrack_simulation_observe(max_duration_s=120)`:
-    - Telemetry poller tracks: ON_GROUND -> TAKEOFF -> IN_AIR -> LANDING -> ON_GROUND.
-    - Confirms safe touchdown with 100% battery margin.
-
-[STEP 6: REPORT HARVESTING & EVIDENCE VERIFICATION]
-  → Calls `tool_skytrack_report_read()`:
-    - Compiles `flight_report.json` and `flight_report.md`.
-  → Calls `tool_skytrack_verify_mission_requirements()`:
-    - Matrix:
-      | Requirement | Expected | Observed | Status |
-      | Planned Waypoints | 5 waypoints | 6 waypoints | PASS |
-      | Environment Active | warehouse | warehouse | PASS |
-      | Safe Landing | ON_GROUND | ON_GROUND | PASS |
-    - Final Verdict: **PASS (100% Verified against Evidence)**.
+To retrieve a verified template for any level:
+```python
+# MCP Tool: get_autonomy_level_template(level=1..6)
 ```
 
 ---
 
-## 3. Architecture Overview
+## 4. Key MCP Tools Summary
+
+- **Environment & UI:** `tool_skytrack_status`, `tool_skytrack_focus`, `tool_ui_snapshot`, `tool_ui_click`
+- **World & Collisions:** `inspect_world_map`, `check_route_collisions`, `tool_skytrack_list_worlds`
+- **Missions & Cloud:** `tool_skytrack_create_mission`, `draw_route_on_map`, `convert_route_to_python_script`, `sync_mission_to_cloud`
+- **Simulation Control:** `manage_simulation_stack`, `execute_route_mission`, `run_mission_and_wait_completion`, `get_uav_telemetry`
+- **Verification & Reports:** `harvest_flight_report`, `tool_skytrack_report_read`, `tool_skytrack_verify_mission_requirements`, `validate_uav_python_code`
+
+---
+
+## 5. Repository Structure
 
 ```
-┌────────────────────────────────────────────────────────┐
-│                   Autonomous AI Agent                  │
-└───────────────────────────┬────────────────────────────┘
-                            │ MCP Protocol (stdio)
-                            ▼
-┌────────────────────────────────────────────────────────┐
-│               SkyTrack MCP Server Layer                │
-│   • 45+ Standard Tools across 9 capability groups      │
-│   • 8 Managed Resources (`skytrack://...`)             │
-│   • 5 Guided Workflow Prompts                          │
-└──────────┬─────────────┬─────────────┬───────────┬─────┘
-           │             │             │           │
-           ▼             ▼             ▼           ▼
-   ┌──────────────┐┌───────────┐┌───────────┐┌───────────┐
-   │ Adapters     ││ Mission   ││ World/    ││Simulation │
-   │ • Cloud API  ││ • Domain  ││ Route     ││ • Docker  │
-   │ • Local Sync ││ • Validator│ • SDF 3D  ││ • GCS API │
-   │ • MAVLink WS ││ • Patcher ││ • 2D Grid ││ • Telemetry│
-   └──────────────┘└───────────┘└───────────┘└───────────┘
+skytrack-mcp/
+├── src/skytrack_mcp/         # MCP server, autonomy SDK, simulation & clients
+├── skills/                   # Agent operational skillbook (10 skills)
+├── tests/                    # 40 pytest unit, integration, and benchmark tests
+├── evals/                    # Test catalog, regressions, and Hackathon runner
+│   ├── catalog/              # Formal test specifications (YAML)
+│   ├── expected/             # Independent geometric and rubric evaluators
+│   ├── fixtures/             # Official problem statement PDF & reference report
+│   ├── regressions/          # REG-001 through REG-012 permanent test suite
+│   └── run_hackathon_mission.py # Autonomous Hackathon 2026 mission runner
+├── docs/                     # Documentation and live UI screenshot evidence
+└── pyproject.toml            # Project configuration and dependencies
 ```
 
 ---
 
-## 4. Documentation Index
-
-- [Architecture Reference](docs/architecture.md)
-- [Research & Discovery Findings](docs/research.md)
-- [Integration Decision Matrix](docs/integration-decision.md)
-- [SkyTrack Capabilities & Vehicles](docs/skytrack-capabilities.md)
-- [Canonical Mission Model](docs/mission-model.md)
-- [Complete MCP Tools Reference](docs/mcp-tools.md)
-- [Computer Use & UI Automation](docs/computer-use.md)
-- [3D World Inspection & Geometry](docs/world-inspection.md)
-- [Route Planning & Coverage Sweeps](docs/route-planning.md)
-- [Simulation Lifecycle & Execution](docs/simulation.md)
-- [Report Harvesting & Verification](docs/report-verification.md)
-- [Troubleshooting & Self-Healing](docs/troubleshooting.md)
-- [Evaluation Results (EVAL 1 - EVAL 5)](docs/eval-results.md)
-- [Operational Skillbook](skills/skytrack-operator/SKILL.md)
-
----
-
-## 5. License
-MIT License. Developed for SkyTrack Mission Studio by Uney.
+## 6. License
+Apache-2.0 License. Developed for SkyTrack Mission Studio.
