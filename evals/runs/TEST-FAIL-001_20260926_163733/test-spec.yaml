@@ -1,0 +1,25 @@
+assignment: Attempt to validate and verify an intentionally invalid mission violating
+  altitude (<0.5m) and payload limits (>5 balls).
+category: CAT-F
+environment:
+  vehicle: x500_tennis_balls_no_cam
+  world: warehouse
+expected:
+  static_validation:
+    expected_error_codes:
+    - INVALID_TAKEOFF_ALTITUDE
+    - PAYLOAD_CAPACITY_EXCEEDED
+    valid: false
+  verification_outcome:
+    overall_status: FAIL
+failure_conditions:
+- Mission declared valid
+- Verification matrix marks mandatory checks as PASS
+objective: Verify that the evaluation system refuses false success when a mission
+  fails or is invalid.
+pass_conditions:
+- 'tool_skytrack_validate_mission reports valid: false'
+- 'evaluate_mission_requirements returns overall_status: FAIL'
+- No false positive PASS status emitted
+test_id: TEST-FAIL-001
+title: Refusal of False Success on Incomplete Flight Execution

@@ -15,6 +15,10 @@ from skytrack_mcp.clients.storage_sync import (
 )
 from skytrack_mcp.diagnostics.healthcheck import run_full_system_healthcheck
 from skytrack_mcp.diagnostics.recovery import attempt_system_recovery
+from skytrack_mcp.mission.models import CanonicalMission, Waypoint
+from skytrack_mcp.mission.validator import validate_canonical_mission
+from skytrack_mcp.report.parser import harvest_mission_report_data
+from skytrack_mcp.report.verification import evaluate_mission_requirements
 from skytrack_mcp.server import (
     check_route_collisions,
     convert_route_to_python_script,
@@ -28,10 +32,6 @@ from skytrack_mcp.server import (
     tool_skytrack_validate_mission,
     tool_skytrack_verify_mission_requirements,
 )
-from skytrack_mcp.mission.models import CanonicalMission, Waypoint
-from skytrack_mcp.mission.validator import validate_canonical_mission
-from skytrack_mcp.report.parser import harvest_mission_report_data
-from skytrack_mcp.report.verification import evaluate_mission_requirements
 
 
 async def run_eval_1(harness: EvalHarness) -> None:
@@ -67,7 +67,7 @@ async def run_eval_1(harness: EvalHarness) -> None:
 
     reqs = [
         {"name": "Valid Mission Structure", "type": "min_waypoints", "expected": 4, "mandatory": True},
-        {"name": "Safe Takeoff Altitude", "type": "world", "expected": "default", "mandatory": True},
+        {"name": "Safe Takeoff Altitude", "type": "takeoff_altitude", "expected": 2.5, "mandatory": True},
         {"name": "Correct World Selected", "type": "world", "expected": "default", "mandatory": True},
     ]
     matrix = evaluate_mission_requirements(mis_id, reqs, report_data)
@@ -123,7 +123,14 @@ async def run_eval_2(harness: EvalHarness) -> None:
     report_data = harvest_mission_report_data(mis_id, init_ctx["active_project_id"])
     reqs = [
         {"name": "Warehouse World Verified", "type": "world", "expected": "warehouse", "mandatory": True},
-        {"name": "Collision-Free 3D Trajectory", "type": "min_waypoints", "expected": 5, "mandatory": True},
+        {
+            "name": "Collision-Free 3D Trajectory",
+            "type": "collision_freedom",
+            "is_collision_free": col_check["is_collision_free"],
+            "conflicts": col_check["conflicts"],
+            "mandatory": True,
+        },
+        {"name": "Safe Corridor Waypoints", "type": "min_waypoints", "expected": 5, "mandatory": True},
     ]
     matrix = evaluate_mission_requirements(mis_id, reqs, report_data)
 
@@ -178,6 +185,7 @@ async def run_eval_3(harness: EvalHarness) -> None:
     report_data = harvest_mission_report_data(mis_id, init_ctx["active_project_id"])
 
     reqs = [
+        {"name": "Safe Takeoff Altitude", "type": "takeoff_altitude", "expected": 3.5, "mandatory": True},
         {"name": "Planned Waypoints Verified", "type": "min_waypoints", "expected": 5, "mandatory": True},
         {"name": "Warehouse Environment Active", "type": "world", "expected": "warehouse", "mandatory": True},
     ]
@@ -253,8 +261,14 @@ async def run_eval_4(harness: EvalHarness) -> None:
     report_data = harvest_mission_report_data(mis_id, init_ctx["active_project_id"])
 
     reqs = [
-        {"name": "Initial Defects Detected by Static Validator", "type": "world", "expected": "warehouse", "mandatory": True},
-        {"name": "Repaired Mission Validation Passes", "type": "min_waypoints", "expected": 5, "mandatory": True},
+        {
+            "name": "Initial Defects Detected by Static Validator",
+            "type": "defect_detected",
+            "detected_issues": [i.model_dump() for i in val_bad.issues],
+            "mandatory": True,
+        },
+        {"name": "Repaired Takeoff Altitude Verified", "type": "takeoff_altitude", "expected": 3.5, "mandatory": True},
+        {"name": "Repaired Mission Waypoints Valid", "type": "min_waypoints", "expected": 5, "mandatory": True},
     ]
     matrix = evaluate_mission_requirements(mis_id, reqs, report_data)
 
@@ -288,8 +302,14 @@ async def run_eval_5(harness: EvalHarness) -> None:
 
     report_data = harvest_mission_report_data(mis_id, init_ctx["active_project_id"])
     reqs = [
-        {"name": "Self-Healing Actions Executed", "type": "world", "expected": init_ctx["selected_world"], "mandatory": True},
-        {"name": "Client Data Storage Healthy", "type": "min_waypoints", "expected": 0, "mandatory": True},
+        {
+            "name": "Self-Healing Actions Executed",
+            "type": "recovery_actions",
+            "actions_taken": rec_res["actions_taken"],
+            "expected": 1,
+            "mandatory": True,
+        },
+        {"name": "Target World Context Intact", "type": "world", "expected": init_ctx["selected_world"], "mandatory": True},
     ]
     matrix = evaluate_mission_requirements(mis_id, reqs, report_data)
 

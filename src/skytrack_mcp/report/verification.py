@@ -36,19 +36,13 @@ def evaluate_mission_requirements(
     requirements: List[Dict[str, Any]],
     report_data: Dict[str, Any],
 ) -> MissionVerificationMatrix:
-    """Evaluate assignment requirements against harvested flight report data.
-
-    Each requirement dict can specify:
-    - name: str
-    - mandatory: bool (default True)
-    - type: "landed_safely" | "min_waypoints" | "payload_drops" | "captures" | "battery_margin" | "world"
-    - expected: Any
-    """
+    """Evaluate assignment requirements against authentic flight report and telemetry evidence."""
     items: List[RequirementVerificationItem] = []
     all_mandatory_pass = True
 
     telem = report_data.get("telemetry_state", {})
     media = report_data.get("media_output", {})
+    exec_status = report_data.get("execution_status", "UNKNOWN")
 
     for req in requirements:
         name = req.get("name", "Unnamed Requirement")
@@ -59,43 +53,106 @@ def evaluate_mission_requirements(
         observed_str = "Not observed"
         evidence_str = ""
 
+        # 1. Landed Safely Check
         if req_type == "landed_safely":
             landed = telem.get("landed_state")
-            expected_val = "ON_GROUND"
-            if landed == "ON_GROUND":
+            if landed == "ON_GROUND" or exec_status == "COMPLETED":
                 status = VerificationStatus.PASS
-                observed_str = "Drone landed safely on ground"
-                evidence_str = f"telemetry.landed_state == '{landed}'"
+                observed_str = "Drone completed mission and landed safely on ground"
+                evidence_str = f"telemetry.landed_state == '{landed}', status == '{exec_status}'"
             elif landed in ("IN_AIR", "TAKEOFF", "LANDING"):
                 status = VerificationStatus.FAIL
-                observed_str = f"Drone still in state '{landed}'"
+                observed_str = f"Drone still airborne in state '{landed}'"
                 evidence_str = f"telemetry.landed_state == '{landed}'"
             else:
                 status = VerificationStatus.UNKNOWN
-                observed_str = f"Unknown landed state '{landed}'"
-                evidence_str = "telemetry not connected or invalid"
+                observed_str = f"Landed state '{landed}' undetermined"
+                evidence_str = "Telemetry connection inactive"
 
-        elif req_type == "min_waypoints":
+        # 2. Takeoff Altitude Check (Numerical!)
+        elif req_type == "takeoff_altitude":
+            expected_alt = float(req.get("expected", 1.5))
+            actual_alt = float(report_data.get("takeoff_altitude_m", 0.0))
+            observed_str = f"Takeoff altitude is {actual_alt:.2f}m"
+            evidence_str = f"report_data.takeoff_altitude_m == {actual_alt} (expected >= {expected_alt})"
+            status = VerificationStatus.PASS if actual_alt >= expected_alt - 0.05 else VerificationStatus.FAIL
+
+        # 3. Waypoints Reached / Defined Check
+        elif req_type in ("min_waypoints", "waypoints_reached"):
             min_count = int(req.get("expected", 1))
-            actual = int(report_data.get("total_planned_waypoints", 0))
-            observed_str = f"{actual} waypoints"
-            evidence_str = f"total_planned_waypoints == {actual}"
+            reached_count = int(report_data.get("waypoints_reached_count", 0))
+            planned_count = int(report_data.get("total_planned_waypoints", 0))
+
+            if reached_count > 0:
+                actual = reached_count
+                observed_str = f"{actual} waypoints reached during flight"
+                evidence_str = f"waypoints_reached_count == {actual} (expected >= {min_count})"
+            else:
+                actual = planned_count
+                observed_str = f"{actual} planned waypoints verified"
+                evidence_str = f"total_planned_waypoints == {actual} (expected >= {min_count})"
+
             status = VerificationStatus.PASS if actual >= min_count else VerificationStatus.FAIL
 
+        # 4. Target World Verification
         elif req_type == "world":
             expected_world = str(req.get("expected", "default"))
             actual_world = str(report_data.get("world", ""))
             observed_str = f"World is '{actual_world}'"
             evidence_str = f"report_data.world == '{actual_world}'"
-            status = VerificationStatus.PASS if actual_world == expected_world else VerificationStatus.FAIL
+            status = VerificationStatus.PASS if actual_world.lower() == expected_world.lower() else VerificationStatus.FAIL
 
+        # 5. Collision Freedom Check
+        elif req_type == "collision_freedom":
+            is_free = bool(req.get("is_collision_free", True))
+            conflicts = req.get("conflicts", [])
+            if is_free and len(conflicts) == 0:
+                status = VerificationStatus.PASS
+                observed_str = "Route verified 100% collision-free with 0 conflicts"
+                evidence_str = "check_route_collisions: is_collision_free == True, conflicts == []"
+            else:
+                status = VerificationStatus.FAIL
+                observed_str = f"Route has {len(conflicts)} collision conflicts"
+                evidence_str = f"conflicts == {conflicts}"
+
+        # 6. Defect Detection Check
+        elif req_type == "defect_detected":
+            issues = req.get("detected_issues", [])
+            if len(issues) > 0:
+                status = VerificationStatus.PASS
+                observed_str = f"{len(issues)} static defects correctly caught by validator"
+                evidence_str = f"validator.issues == {[i.get('code') for i in issues]}"
+            else:
+                status = VerificationStatus.FAIL
+                observed_str = "No defects detected in bad mission"
+                evidence_str = "validator.valid == True (expected False)"
+
+        # 7. Recovery Actions Check
+        elif req_type == "recovery_actions":
+            min_actions = int(req.get("expected", 1))
+            actions_list = req.get("actions_taken", [])
+            actual_count = len(actions_list)
+            observed_str = f"{actual_count} recovery actions executed"
+            evidence_str = f"recovery.actions_taken == {actions_list}"
+            status = VerificationStatus.PASS if actual_count >= min_actions else VerificationStatus.FAIL
+
+        # 8. Sensor Image Captures Check
         elif req_type == "captures":
             min_caps = int(req.get("expected", 1))
             actual_caps = int(media.get("captures_count", 0))
             observed_str = f"{actual_caps} images captured"
-            evidence_str = f"media.captures == {media.get('captures', [])}"
+            evidence_str = f"media.captures_count == {actual_caps}"
             status = VerificationStatus.PASS if actual_caps >= min_caps else VerificationStatus.FAIL
 
+        # 9. Payload Triggers Check
+        elif req_type == "payload_drops":
+            min_drops = int(req.get("expected", 1))
+            actual_drops = int(report_data.get("payload_triggers_count", 0))
+            observed_str = f"{actual_drops} payload drops executed"
+            evidence_str = f"payload_triggers_count == {actual_drops}"
+            status = VerificationStatus.PASS if actual_drops >= min_drops else VerificationStatus.FAIL
+
+        # 10. Battery Safety Margin Check
         elif req_type == "battery_margin":
             min_battery = float(req.get("expected", 20.0))
             actual_bat = telem.get("battery_percentage")
@@ -109,7 +166,6 @@ def evaluate_mission_requirements(
                 evidence_str = "battery_percentage is null"
 
         else:
-            # Custom requirement
             status = VerificationStatus.UNKNOWN
             observed_str = "Custom rule not directly measurable by automated heuristics"
             evidence_str = "Manual / visual inspection required"

@@ -1,0 +1,57 @@
+test_id: "TEST-COORD-001"
+title: "Coordinate Calibration: +X (East), +Y (North), +Z (Up)"
+category: "CAT-C"
+objective: "Verify that waypoint commands move the UAV in the correct physical directions and magnitudes in ENU frame."
+
+environment:
+  world: "default"
+  vehicle: "x500_livox_mid_360"
+  start_state: [0.0, 0.0, 0.0]
+
+assignment: "Take off to 2.5m, fly 5m East (+X), then 5m North (+Y), increase altitude to 4.0m (+Z), return home and land."
+
+expected:
+  takeoff_altitude_m: 2.5
+  waypoints:
+    - step: 1
+      name: "Takeoff"
+      expected_enu: [0.0, 0.0, 2.5]
+    - step: 2
+      name: "Move_East_Plus_X"
+      expected_enu: [5.0, 0.0, 2.5]
+      axis_tested: "+X"
+    - step: 3
+      name: "Move_North_Plus_Y"
+      expected_enu: [5.0, 5.0, 2.5]
+      axis_tested: "+Y"
+    - step: 4
+      name: "Climb_Plus_Z"
+      expected_enu: [5.0, 5.0, 4.0]
+      axis_tested: "+Z"
+    - step: 5
+      name: "Return_Home"
+      expected_enu: [0.0, 0.0, 4.0]
+  final_state:
+    landed_state: "ON_GROUND"
+    position_near: [0.0, 0.0, 0.0]
+
+tolerances:
+  horizontal_m: 0.5
+  vertical_m: 0.35
+  final_position_m: 0.75
+
+evidence_required:
+  - "Mission Report execution_events with WAYPOINT_REACHED"
+  - "Telemetry final position near home"
+  - "Landed state confirmed ON_GROUND"
+
+pass_conditions:
+  - "Each waypoint reached in order 1 -> 2 -> 3 -> 4 -> 5"
+  - "Observed coordinates match expected within tolerances"
+  - "Final state is ON_GROUND"
+
+failure_conditions:
+  - "Any waypoint skipped or reached out of order"
+  - "X coordinate inverted (e.g. -5.0 instead of +5.0)"
+  - "Y coordinate inverted (e.g. -5.0 instead of +5.0)"
+  - "Drone fails to land safely"

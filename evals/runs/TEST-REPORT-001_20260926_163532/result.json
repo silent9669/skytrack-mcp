@@ -1,0 +1,31 @@
+{
+  "test_id": "TEST-REPORT-001",
+  "run_id": "TEST-REPORT-001_20260926_163532",
+  "status": "FAIL",
+  "events_count": 0,
+  "waypoints_reached": 0,
+  "payload_triggers": 0,
+  "execution_status": null,
+  "requirements": [
+    {
+      "id": "R_EVENTS_EXIST",
+      "status": "FAIL",
+      "observed": "0 events"
+    },
+    {
+      "id": "R_MIN_WAYPOINTS",
+      "status": "FAIL",
+      "expected": 7,
+      "observed": 0
+    },
+    {
+      "id": "R_STATUS_COMPLETED",
+      "status": "FAIL",
+      "expected": "COMPLETED",
+      "observed": "None"
+    }
+  ],
+  "bugs": [
+    "BUG-0002"
+  ]
+}

@@ -1,0 +1,31 @@
+assignment: Parse flight report for completed warehouse inspection survey and extract
+  event timeline.
+category: CAT-E
+environment:
+  mission_fixture_id: 01M39YY8G8NZXCBMJH8RHH1GWP
+  world: warehouse
+evidence_required:
+- Non-empty execution_events array in parsed report
+- Event list containing WAYPOINT_REACHED and PAYLOAD_TRIGGER
+- Parsed ground speed statistics
+expected:
+  events_extracted:
+    final_state: LANDED_SAFE
+    min_waypoints_reached: 7
+    payload_trigger_actions: 3
+  report_metadata:
+    min_duration_s: 100.0
+    mission_id: 01M39YY8G8NZXCBMJH8RHH1GWP
+    status: COMPLETED
+failure_conditions:
+- Report contains only static plan.json waypoints
+- telemetry_state has all null values despite existing report
+- No execution events present
+objective: Verify that harvest_mission_report_data extracts real flight events from
+  skytrack-mission-report*.json rather than fabricating a stub.
+pass_conditions:
+- tool_skytrack_report_read returns parsed report from authentic JSON
+- Total reached waypoints count == 7
+- Captured images count >= 3
+test_id: TEST-REPORT-001
+title: Authentic Execution Report Parsing vs. Fabricated Stubs

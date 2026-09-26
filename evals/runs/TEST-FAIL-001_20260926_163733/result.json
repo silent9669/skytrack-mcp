@@ -1,0 +1,44 @@
+{
+  "test_id": "TEST-FAIL-001",
+  "run_id": "TEST-FAIL-001_20260926_163733",
+  "status": "PASS",
+  "static_valid": false,
+  "detected_error_codes": [
+    "INVALID_TAKEOFF_ALTITUDE",
+    "ALTITUDE_TOO_LOW",
+    "ALTITUDE_TOO_LOW",
+    "ALTITUDE_TOO_LOW",
+    "ALTITUDE_TOO_LOW",
+    "ALTITUDE_TOO_LOW",
+    "ALTITUDE_TOO_LOW",
+    "ALTITUDE_TOO_LOW",
+    "PAYLOAD_CAPACITY_EXCEEDED"
+  ],
+  "requirements": [
+    {
+      "id": "R_STATIC_INVALID",
+      "status": "PASS",
+      "observed": "valid=False"
+    },
+    {
+      "id": "R_CODES_DETECTED",
+      "status": "PASS",
+      "expected": [
+        "INVALID_TAKEOFF_ALTITUDE",
+        "PAYLOAD_CAPACITY_EXCEEDED"
+      ],
+      "observed": [
+        "INVALID_TAKEOFF_ALTITUDE",
+        "ALTITUDE_TOO_LOW",
+        "ALTITUDE_TOO_LOW",
+        "ALTITUDE_TOO_LOW",
+        "ALTITUDE_TOO_LOW",
+        "ALTITUDE_TOO_LOW",
+        "ALTITUDE_TOO_LOW",
+        "ALTITUDE_TOO_LOW",
+        "PAYLOAD_CAPACITY_EXCEEDED"
+      ]
+    }
+  ],
+  "bugs": []
+}

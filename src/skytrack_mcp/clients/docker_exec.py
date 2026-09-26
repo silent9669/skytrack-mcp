@@ -509,7 +509,7 @@ def start_simulation_stack(
     )
 
     res_sim = subprocess.run(
-        ["docker", "compose", "-f", str(sim_compose), "up", "-d"],
+        ["docker", "compose", "-f", str(sim_compose), "up", "-d", "--force-recreate"],
         env=merged_env,
         capture_output=True,
         text=True,

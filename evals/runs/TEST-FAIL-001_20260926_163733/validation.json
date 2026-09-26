@@ -1,0 +1,84 @@
+{
+  "valid": false,
+  "issues": [
+    {
+      "severity": "ERROR",
+      "code": "INVALID_TAKEOFF_ALTITUDE",
+      "message": "Takeoff altitude 0.2m is outside safe limits [1.0m .. 50.0m].",
+      "action_index": null,
+      "action_id": null,
+      "fix_suggestion": "Set takeoff altitude between 1.5m and 10.0m."
+    },
+    {
+      "severity": "ERROR",
+      "code": "ALTITUDE_TOO_LOW",
+      "message": "Waypoint #1 altitude 0.20m is too close to ground (< 0.5m).",
+      "action_index": 0,
+      "action_id": "364b9c1f-5592-4a31-81e6-9dfbb9161903",
+      "fix_suggestion": "Raise waypoint altitude to at least 1.5m."
+    },
+    {
+      "severity": "ERROR",
+      "code": "ALTITUDE_TOO_LOW",
+      "message": "Waypoint #2 altitude 0.20m is too close to ground (< 0.5m).",
+      "action_index": 1,
+      "action_id": "926b0f85-1604-498c-b0bd-6860dcc01f56",
+      "fix_suggestion": "Raise waypoint altitude to at least 1.5m."
+    },
+    {
+      "severity": "ERROR",
+      "code": "ALTITUDE_TOO_LOW",
+      "message": "Waypoint #3 altitude 0.20m is too close to ground (< 0.5m).",
+      "action_index": 2,
+      "action_id": "0ef3b97b-5804-456f-b659-79d6c6289b93",
+      "fix_suggestion": "Raise waypoint altitude to at least 1.5m."
+    },
+    {
+      "severity": "ERROR",
+      "code": "ALTITUDE_TOO_LOW",
+      "message": "Waypoint #4 altitude 0.20m is too close to ground (< 0.5m).",
+      "action_index": 3,
+      "action_id": "b44f0670-07f7-4c1e-ac71-7d6967fb8313",
+      "fix_suggestion": "Raise waypoint altitude to at least 1.5m."
+    },
+    {
+      "severity": "ERROR",
+      "code": "ALTITUDE_TOO_LOW",
+      "message": "Waypoint #5 altitude 0.20m is too close to ground (< 0.5m).",
+      "action_index": 4,
+      "action_id": "eb7671f8-927c-4bf4-ba61-63fd3f1252bf",
+      "fix_suggestion": "Raise waypoint altitude to at least 1.5m."
+    },
+    {
+      "severity": "ERROR",
+      "code": "ALTITUDE_TOO_LOW",
+      "message": "Waypoint #6 altitude 0.20m is too close to ground (< 0.5m).",
+      "action_index": 5,
+      "action_id": "4028e097-bd37-49cd-bcd3-daab6d2cc498",
+      "fix_suggestion": "Raise waypoint altitude to at least 1.5m."
+    },
+    {
+      "severity": "ERROR",
+      "code": "ALTITUDE_TOO_LOW",
+      "message": "Waypoint #7 altitude 0.20m is too close to ground (< 0.5m).",
+      "action_index": 6,
+      "action_id": "8020458b-977d-4731-9fbf-2a30dd856e3c",
+      "fix_suggestion": "Raise waypoint altitude to at least 1.5m."
+    },
+    {
+      "severity": "ERROR",
+      "code": "PAYLOAD_CAPACITY_EXCEEDED",
+      "message": "Mission drops 6 balls, but vehicle 'x500_tennis_balls_no_cam' only holds 5.",
+      "action_index": null,
+      "action_id": null,
+      "fix_suggestion": "Reduce drop actions to at most 5."
+    }
+  ],
+  "stats": {
+    "waypoint_count": 7,
+    "drop_ball_actions": 6,
+    "camera_actions": 0,
+    "total_distance_m": 6.41,
+    "estimated_duration_s": 3.2
+  }
+}

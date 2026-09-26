@@ -1,0 +1,43 @@
+test_id: "TEST-ORDER-001"
+title: "Waypoint Sequence Ordering and Return to Launch"
+category: "CAT-B"
+objective: "Verify that multi-point navigation executes strictly in declared sequence order A -> B -> C -> Home."
+
+environment:
+  world: "default"
+  vehicle: "x500_livox_mid_360"
+  start_state: [0.0, 0.0, 0.0]
+
+assignment: "Fly sequence: Waypoint A [3, 2, 2.5], Waypoint B [6, 4, 3.0], Waypoint C [2, 6, 2.5], then RTL."
+
+expected:
+  takeoff_altitude_m: 2.5
+  waypoints:
+    - step: 1
+      name: "WP_A"
+      expected_enu: [3.0, 2.0, 2.5]
+    - step: 2
+      name: "WP_B"
+      expected_enu: [6.0, 4.0, 3.0]
+    - step: 3
+      name: "WP_C"
+      expected_enu: [2.0, 6.0, 2.5]
+    - step: 4
+      name: "RTL_HOME"
+      expected_enu: [0.0, 0.0, 0.0]
+  sequence_ordering: ["WP_A", "WP_B", "WP_C", "RTL_HOME"]
+
+tolerances:
+  horizontal_m: 0.5
+  vertical_m: 0.35
+  final_position_m: 0.75
+
+pass_conditions:
+  - "Timestamp of WP_A event < WP_B event < WP_C event"
+  - "All 3 target points visited within tolerance"
+  - "Final state reached is ON_GROUND near (0, 0)"
+
+failure_conditions:
+  - "Reaching WP_C before WP_B"
+  - "Premature RTL before visiting WP_C"
+  - "Missing event confirmation in flight report"
