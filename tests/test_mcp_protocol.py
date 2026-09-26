@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+import sys
 import pytest
 from mcp.client.session import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
@@ -10,8 +10,10 @@ from mcp.client.stdio import StdioServerParameters, stdio_client
 
 @pytest.mark.asyncio
 async def test_mcp_stdio_wire_protocol_full():
-    server_bin = Path(__file__).resolve().parent.parent / ".venv" / "bin" / "skytrack-mcp"
-    params = StdioServerParameters(command=str(server_bin), args=[])
+    params = StdioServerParameters(
+        command=sys.executable,
+        args=["-m", "skytrack_mcp.server"],
+    )
 
     async with stdio_client(params) as (read_stream, write_stream):
         async with ClientSession(read_stream, write_stream) as session:
@@ -61,7 +63,7 @@ async def test_mcp_stdio_wire_protocol_full():
             assert not getattr(ctx_res, "is_error", False)
             assert any("selected_world" in str(c) for c in ctx_res.content)
 
-            # 3. Test Tool Call: inspect_world_map
+            # 3. Test Tool Call: inspect_world_map (reads .world_cache/warehouse.sdf)
             map_res = await session.call_tool(
                 "inspect_world_map",
                 {"world_name": "warehouse", "slice_altitude_m": 2.5, "grid_half_size_m": 10.0},
