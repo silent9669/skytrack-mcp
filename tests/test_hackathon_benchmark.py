@@ -192,3 +192,49 @@ def test_dynamic_simulation_from_authored_mission(tmp_path: Path) -> None:
     assert score_broken["rubric_scores"]["video_recording_wrapped"] == 0.0
     assert score_broken["total_score"] == 82.0
 
+
+def test_independent_urban_patrol_route_planner(tmp_path: Path) -> None:
+    """Verify generate_independent_urban_patrol_route produces a valid 6-waypoint route scoring 100/100."""
+    from evals.run_hackathon_mission import generate_independent_urban_patrol_route
+    from skytrack_mcp.clients.cloud_client import build_cloud_commands_v2
+    from skytrack_mcp.clients.storage_sync import write_visual_route
+    from skytrack_mcp.simulation.runner import simulate_mission_to_execution_report
+
+    route = generate_independent_urban_patrol_route()
+    assert len(route) == 6
+    assert all(w["z"] == 36.0 for w in route)
+
+    # Verify cloud commands.v2 payload builder
+    v2_cmd = build_cloud_commands_v2(
+        world="urban",
+        vehicle="x500_tennis_balls",
+        actions=route,
+        spawn_location=[203.684, -153.697, 0.452],
+        takeoff_altitude=36.0,
+        target_speed=3.0,
+    )
+    assert v2_cmd["v2"]["metadata"]["world"]["name"] == "urban"
+    assert v2_cmd["v2"]["metadata"]["vehicle"]["name"] == "x500_tennis_balls"
+
+    # Verify write_visual_route auto-creates missing mission directory (BUG-0006)
+    write_visual_route(
+        waypoints=route,
+        mission_id="NEW_CLOUD_MIS",
+        project_id="NEW_PRJ",
+        spawn_location=[203.684, -153.697, 0.452],
+        takeoff_altitude=36.0,
+        target_speed=3.0,
+        world="urban",
+        vehicle="x500_tennis_balls",
+        client_data_dir=tmp_path,
+    )
+    sim_res = simulate_mission_to_execution_report(
+        mission_id="NEW_CLOUD_MIS",
+        project_id="NEW_PRJ",
+        client_data_dir=tmp_path,
+        save_to_disk=True,
+    )
+    score = score_hackathon_mission_report(Path(sim_res["report_path"]))
+    assert score["total_score"] == 100.0
+
+

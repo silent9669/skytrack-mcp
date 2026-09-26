@@ -761,8 +761,8 @@ def create_mission_on_cloud(
 
 
 @mcp.tool()
-def sync_mission_to_cloud(mission_id: Optional[str] = None) -> Dict[str, Any]:
-    """Upload local changes from plan.json and mission.json to SkyTrack Cloud."""
+def sync_mission_to_cloud(mission_id: Optional[str] = None, name: Optional[str] = None) -> Dict[str, Any]:
+    """Upload local changes from plan.json and mission.json (including v2 client/mc/metadata) to SkyTrack Cloud."""
     details = read_mission_details(mission_id=mission_id)
     mis_id = details["mission_id"]
     plan = details.get("plan", {})
@@ -772,11 +772,25 @@ def sync_mission_to_cloud(mission_id: Optional[str] = None) -> Dict[str, Any]:
     for seq in sequences:
         actions.extend(seq.get("actions", []))
 
+    world_val = mission_meta.get("world", "default")
+    if isinstance(world_val, dict):
+        world_val = world_val.get("name", "default")
+
+    veh_val = mission_meta.get("vehicle", "x500_livox_mid_360")
+    if isinstance(veh_val, dict):
+        veh_val = veh_val.get("name", "x500_livox_mid_360")
+
     cloud_update = update_cloud_mission(
         mission_id=mis_id,
-        world=mission_meta.get("world"),
+        name=name,
+        world=str(world_val),
+        vehicle=str(veh_val),
         actions=actions,
         spawn_location=plan.get("spawnLocation"),
+        takeoff_altitude=float(mission_meta.get("takeoffAltitude", 2.5)),
+        target_speed=float(mission_meta.get("targetSpeed", 2.0)),
+        safety_option=str(mission_meta.get("safetyOption", "avoid")),
+        end_action=str(mission_meta.get("end", {}).get("type", "rtl")),
     )
     return {
         "synced_mission_id": mis_id,

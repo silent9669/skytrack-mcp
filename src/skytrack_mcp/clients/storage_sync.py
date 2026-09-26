@@ -78,22 +78,46 @@ def list_all_missions(client_data_dir: Optional[Path] = None) -> List[Dict[str, 
 def resolve_mission_dir(
     mission_id: Optional[str] = None,
     client_data_dir: Optional[Path] = None,
+    project_id: Optional[str] = None,
+    create_if_missing: bool = False,
 ) -> Tuple[Path, str, str]:
     """Resolve (mission_dir, project_id, mission_id).
     If mission_id is None, returns the most recently modified mission."""
     client_data_dir = client_data_dir or CLIENT_DATA_DIR
     missions = list_all_missions(client_data_dir)
-    if not missions:
-        raise FileNotFoundError(f"No SkyTrack missions found in {client_data_dir}")
 
     if mission_id:
         clean_id = mission_id.removeprefix("mis-")
         for m in missions:
             if m["mission_id"] == clean_id:
                 return Path(m["path"]), m["project_id"], m["mission_id"]
+
+        if create_if_missing:
+            prj_id = (
+                project_id.removeprefix("prj-")
+                if project_id
+                else (missions[0]["project_id"] if missions else "01M11QPK1C3Y5GFNBDADS8H7MC")
+            )
+            new_dir = client_data_dir / f"prj-{prj_id}" / f"mis-{clean_id}"
+            new_dir.mkdir(parents=True, exist_ok=True)
+            if not (new_dir / "mission.json").exists():
+                (new_dir / "mission.json").write_text(
+                    json.dumps({"world": "default", "vehicle": "x500_livox_mid_360", "codeMode": False}, indent=2),
+                    encoding="utf-8",
+                )
+            if not (new_dir / "plan.json").exists():
+                (new_dir / "plan.json").write_text(
+                    json.dumps({"spawnLocation": [0, 0, 0], "sequences": []}, indent=2),
+                    encoding="utf-8",
+                )
+            return new_dir, prj_id, clean_id
+
         raise FileNotFoundError(
             f"Mission '{mission_id}' not found. Available: {[m['mission_id'] for m in missions]}"
         )
+
+    if not missions:
+        raise FileNotFoundError(f"No SkyTrack missions found in {client_data_dir}")
 
     latest = missions[0]
     return Path(latest["path"]), latest["project_id"], latest["mission_id"]
@@ -139,15 +163,12 @@ def write_visual_route(
     world: Optional[str] = None,
     vehicle: Optional[str] = None,
     client_data_dir: Optional[Path] = None,
+    project_id: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Write a visual route into plan.json and update mission.json for the SkyTrack UI.
-
-    Each item in `waypoints` can be:
-      - {"x": float, "y": float, "z": float} (or {"data": [x, y, z]}) -> creates a "navigate" action
-      - Optionally with {"after_action": "drop-ball" | "start-recording-video" | "stop-recording-video" | "take-photo"}
-      - Or a direct UI action {"type": "drop-ball" | "navigate" | ..., "data": [x, y, z]}
-    """
-    mis_dir, prj_id, mis_id = resolve_mission_dir(mission_id, client_data_dir)
+    """Write a visual route into plan.json and update mission.json for the SkyTrack UI."""
+    mis_dir, prj_id, mis_id = resolve_mission_dir(
+        mission_id, client_data_dir, project_id=project_id, create_if_missing=True
+    )
     mission_file = mis_dir / "mission.json"
     plan_file = mis_dir / "plan.json"
 
@@ -253,10 +274,13 @@ def write_python_script(
     mission_id: Optional[str] = None,
     switch_to_code_mode: bool = True,
     client_data_dir: Optional[Path] = None,
+    project_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Save python_code to script.py in the target mission directory and optionally set codeMode=True."""
     client_data_dir = client_data_dir or CLIENT_DATA_DIR
-    mis_dir, prj_id, mis_id = resolve_mission_dir(mission_id, client_data_dir)
+    mis_dir, prj_id, mis_id = resolve_mission_dir(
+        mission_id, client_data_dir, project_id=project_id, create_if_missing=True
+    )
     script_file = mis_dir / "script.py"
     mission_file = mis_dir / "mission.json"
 

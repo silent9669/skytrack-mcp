@@ -170,23 +170,31 @@ def tool_skytrack_create_mission(
     vehicle: str = "x500_livox_mid_360",
     actions: Optional[List[Dict[str, Any]]] = None,
     spawn_location: Optional[List[float]] = None,
+    takeoff_altitude: float = 2.5,
+    target_speed: float = 2.0,
 ) -> Dict[str, Any]:
-    """Create a mission on Cloud and initialize local ClientData cache."""
+    """Create a mission on Cloud (with v2 schema) and initialize local ClientData cache."""
     clean_prj = project_id.removeprefix("prj-")
     cloud_res = create_cloud_mission(
         name=name,
         project_id=clean_prj,
         world=world,
+        vehicle=vehicle,
         actions=actions or [],
+        spawn_location=spawn_location or [0.0, 0.0, 0.0],
+        takeoff_altitude=takeoff_altitude,
+        target_speed=target_speed,
     )
     new_id = str(cloud_res.get("id") or "").removeprefix("mis-")
     local_sync = write_visual_route(
         waypoints=actions or [],
         mission_id=new_id,
         spawn_location=spawn_location or [0.0, 0.0, 0.0],
-        takeoff_altitude=2.5,
+        takeoff_altitude=takeoff_altitude,
+        target_speed=target_speed,
         world=world,
         vehicle=vehicle,
+        project_id=clean_prj,
     )
     return {
         "cloud_mission": cloud_res,

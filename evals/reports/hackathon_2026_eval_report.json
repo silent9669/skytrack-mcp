@@ -1,93 +1,156 @@
 {
-  "simulated_score": {
-    "total_score": 100.0,
-    "max_score": 100.0,
-    "passed_threshold": true,
-    "rubric_scores": {
-      "mission_success": 22.0,
-      "valid_route": 15.0,
-      "true_patrol_metrics": 15.0,
-      "video_recording_wrapped": 18.0,
-      "ball_drop_accuracy": 18.0,
-      "rtl_completion": 12.0
+  "mission_id": "01M3EKZ58VMJJSKSG3CHAA7A21",
+  "world": "urban",
+  "vehicle": "x500_tennis_balls",
+  "ui_evidence": {
+    "window_bounds": {
+      "x": 0,
+      "y": 33,
+      "width": 1728,
+      "height": 1084
     },
-    "details": {
-      "final_status": "Succeeded",
-      "route_checks": {
-        "waypoint_count": 7,
-        "count_valid": true,
-        "all_inside_polygon": true,
-        "all_alt_ge_35m": true
+    "screenshot_path": "/Users/phucdang/Documents/skytrack-mcp/docs/reports/skytrack_live_ui_urban_fire.png",
+    "image_size_bytes": 535949
+  },
+  "agent_independent_solution": {
+    "waypoints_count": 6,
+    "altitude_m": 36.0,
+    "total_2d_length_m": 671.15,
+    "span_x_m": 287.42,
+    "span_y_m": 175.0,
+    "ball_drop_error_m": 0.0,
+    "video_recording_evidence": "Verified in execution_events: start_event=#20 < drop_event=#26 < stop_event=#33",
+    "waypoints": [
+      {
+        "x": 200.0,
+        "y": -80.0,
+        "z": 36.0
       },
-      "patrol_metrics": {
-        "total_2d_length_m": 649.98,
-        "span_x_m": 287.42,
-        "span_y_m": 125.52,
-        "length_valid": true,
-        "span_valid": true
+      {
+        "x": 110.0,
+        "y": 10.0,
+        "z": 36.0
       },
-      "video_recording": {
-        "passed": true,
-        "evidence": "Verified in execution_events: start_event=#24 < drop_event=#30 < stop_event=#37"
+      {
+        "x": -15.0,
+        "y": -5.0,
+        "z": 36.0,
+        "after_action": "start-recording-video"
       },
-      "ball_drop": {
-        "drop_events_count": 1,
-        "horizontal_error_m": 0.0,
-        "drop_accuracy_pass": true
+      {
+        "x": -83.74,
+        "y": -28.18,
+        "z": 36.0,
+        "after_action": "drop-ball"
       },
-      "rtl": {
-        "rtl_events_count": 1,
-        "passed": true
+      {
+        "x": 50.0,
+        "y": -165.0,
+        "z": 36.0,
+        "after_action": "stop-recording-video"
+      },
+      {
+        "x": 203.684,
+        "y": -153.697,
+        "z": 36.0
+      }
+    ],
+    "score": {
+      "total_score": 100.0,
+      "max_score": 100.0,
+      "passed_threshold": true,
+      "rubric_scores": {
+        "mission_success": 22.0,
+        "valid_route": 15.0,
+        "true_patrol_metrics": 15.0,
+        "video_recording_wrapped": 18.0,
+        "ball_drop_accuracy": 18.0,
+        "rtl_completion": 12.0
+      },
+      "details": {
+        "final_status": "Succeeded",
+        "route_checks": {
+          "waypoint_count": 6,
+          "count_valid": true,
+          "all_inside_polygon": true,
+          "all_alt_ge_35m": true
+        },
+        "patrol_metrics": {
+          "total_2d_length_m": 671.15,
+          "span_x_m": 287.42,
+          "span_y_m": 175.0,
+          "length_valid": true,
+          "span_valid": true
+        },
+        "video_recording": {
+          "passed": true,
+          "evidence": "Verified in execution_events: start_event=#20 < drop_event=#26 < stop_event=#33"
+        },
+        "ball_drop": {
+          "drop_events_count": 1,
+          "horizontal_error_m": 0.0,
+          "drop_accuracy_pass": true
+        },
+        "rtl": {
+          "rtl_events_count": 1,
+          "passed": true
+        }
       }
     }
   },
-  "reference_score": {
-    "total_score": 100.0,
-    "max_score": 100.0,
-    "passed_threshold": true,
-    "rubric_scores": {
-      "mission_success": 22.0,
-      "valid_route": 15.0,
-      "true_patrol_metrics": 15.0,
-      "video_recording_wrapped": 18.0,
-      "ball_drop_accuracy": 18.0,
-      "rtl_completion": 12.0
-    },
-    "details": {
-      "final_status": "Succeeded",
-      "route_checks": {
-        "waypoint_count": 7,
-        "count_valid": true,
-        "all_inside_polygon": true,
-        "all_alt_ge_35m": true
+  "official_sample_answer": {
+    "waypoints_count": 7,
+    "altitude_m": 35.0,
+    "total_2d_length_m": 649.98,
+    "span_x_m": 287.42,
+    "span_y_m": 125.52,
+    "ball_drop_error_m": 0.14,
+    "video_recording_evidence": "Verified in execution_events: start_event=#341 < drop_event=#342 < stop_event=#343",
+    "score": {
+      "total_score": 100.0,
+      "max_score": 100.0,
+      "passed_threshold": true,
+      "rubric_scores": {
+        "mission_success": 22.0,
+        "valid_route": 15.0,
+        "true_patrol_metrics": 15.0,
+        "video_recording_wrapped": 18.0,
+        "ball_drop_accuracy": 18.0,
+        "rtl_completion": 12.0
       },
-      "patrol_metrics": {
-        "total_2d_length_m": 649.98,
-        "span_x_m": 287.42,
-        "span_y_m": 125.52,
-        "length_valid": true,
-        "span_valid": true
-      },
-      "video_recording": {
-        "passed": true,
-        "evidence": "Verified in execution_events: start_event=#341 < drop_event=#342 < stop_event=#343"
-      },
-      "ball_drop": {
-        "drop_events_count": 1,
-        "horizontal_error_m": 0.14,
-        "drop_accuracy_pass": true
-      },
-      "rtl": {
-        "rtl_events_count": 3,
-        "passed": true
+      "details": {
+        "final_status": "Succeeded",
+        "route_checks": {
+          "waypoint_count": 7,
+          "count_valid": true,
+          "all_inside_polygon": true,
+          "all_alt_ge_35m": true
+        },
+        "patrol_metrics": {
+          "total_2d_length_m": 649.98,
+          "span_x_m": 287.42,
+          "span_y_m": 125.52,
+          "length_valid": true,
+          "span_valid": true
+        },
+        "video_recording": {
+          "passed": true,
+          "evidence": "Verified in execution_events: start_event=#341 < drop_event=#342 < stop_event=#343"
+        },
+        "ball_drop": {
+          "drop_events_count": 1,
+          "horizontal_error_m": 0.14,
+          "drop_accuracy_pass": true
+        },
+        "rtl": {
+          "rtl_events_count": 3,
+          "passed": true
+        }
       }
     }
   },
-  "trajectory_equivalence": {
-    "simulated_waypoints": 7,
-    "reference_waypoints": 7,
-    "simulated_ball_drop_error_m": 0.0,
-    "reference_ball_drop_error_m": 0.14,
-    "scores_match_100_percent": true
+  "comparison_verdict": {
+    "both_achieve_100_points": true,
+    "independent_trajectory_verified": true
   }
 }

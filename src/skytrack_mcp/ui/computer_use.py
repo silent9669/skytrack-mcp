@@ -14,8 +14,11 @@ from skytrack_mcp.core.errors import SkyTrackError, SkyTrackErrorCode
 from skytrack_mcp.ui.window import focus_skytrack_window, get_skytrack_window_bounds
 
 
-def capture_skytrack_screenshot(file_path: Optional[str] = None) -> Dict[str, Any]:
-    """Capture a screenshot of the SkyTrack window and return metadata and base64 PNG."""
+def capture_skytrack_screenshot(
+    file_path: Optional[str] = None,
+    include_base64: bool = False,
+) -> Dict[str, Any]:
+    """Capture a screenshot of the SkyTrack window and return metadata (and optional base64 PNG)."""
     bounds = get_skytrack_window_bounds()
     x, y, w, h = bounds["x"], bounds["y"], bounds["width"], bounds["height"]
 
@@ -31,15 +34,15 @@ def capture_skytrack_screenshot(file_path: Optional[str] = None) -> Dict[str, An
         )
 
     img_bytes = target_path.read_bytes()
-    b64 = base64.b64encode(img_bytes).decode("utf-8")
-
-    return {
+    result: Dict[str, Any] = {
         "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "window_bounds": bounds,
         "saved_path": str(target_path),
         "image_size_bytes": len(img_bytes),
-        "base64_png": b64,
     }
+    if include_base64:
+        result["base64_png"] = base64.b64encode(img_bytes).decode("utf-8")
+    return result
 
 
 def click_relative(rel_x: float, rel_y: float) -> Dict[str, Any]:
