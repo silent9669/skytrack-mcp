@@ -1,0 +1,303 @@
+{
+  "execution_metadata": {
+    "mission_id": "01M39YY8G8NZXCBMJH8RHH1GWP",
+    "mission_name": "Warehouse 2.5m Inspection Survey",
+    "world": "warehouse",
+    "status": "COMPLETED",
+    "duration": 116.0
+  },
+  "execution_report": [
+    {
+      "execution_id": "exec-01M39YY8G8NZXCBMJH8RHH1GWP-001",
+      "execution_name": "Warehouse Indoor Sweep Pass 1",
+      "status_summary": {
+        "start_time": "2026-09-24T15:20:00+00:00",
+        "end_time": "2026-09-24T15:21:56+00:00",
+        "execution_id": "exec-01M39YY8G8NZXCBMJH8RHH1GWP-001",
+        "final_status": "COMPLETED",
+        "duration_seconds": 116.0,
+        "world": "warehouse",
+        "total_waypoints": 7,
+        "average_ground_speed": 1.45,
+        "min_ground_speed": 0.0,
+        "max_ground_speed": 1.62,
+        "waypoints_defined": [
+          {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 2.5
+          },
+          {
+            "x": -5.0,
+            "y": 0.0,
+            "z": 2.5
+          },
+          {
+            "x": -5.0,
+            "y": 2.5,
+            "z": 2.5
+          },
+          {
+            "x": 3.0,
+            "y": 2.5,
+            "z": 2.5
+          },
+          {
+            "x": 3.0,
+            "y": 5.0,
+            "z": 2.5
+          },
+          {
+            "x": -5.0,
+            "y": 5.0,
+            "z": 2.5
+          },
+          {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 2.5
+          }
+        ]
+      },
+      "execution_events": [
+        {
+          "event": "FLIGHT_MODE_CHANGE",
+          "timestamp": "2026-09-24T15:20:00+00:00",
+          "data": {
+            "mode": "TAKEOFF"
+          }
+        },
+        {
+          "event": "NAVIGATION_STATUS",
+          "timestamp": "2026-09-24T15:20:00+00:00",
+          "data": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0,
+            "ground_speed": 0.0,
+            "in_avoidance_mode": false,
+            "status": "ARMED_TAKEOFF"
+          }
+        },
+        {
+          "event": "NAVIGATION_STATUS",
+          "timestamp": "2026-09-24T15:20:08+00:00",
+          "data": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 2.5,
+            "ground_speed": 0.5,
+            "in_avoidance_mode": false,
+            "status": "ALTITUDE_REACHED"
+          }
+        },
+        {
+          "event": "WAYPOINT_REACHED",
+          "timestamp": "2026-09-24T15:20:20+00:00",
+          "data": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 2.5,
+            "wp_index": 1
+          }
+        },
+        {
+          "event": "NAVIGATION_STATUS",
+          "timestamp": "2026-09-24T15:20:20+00:00",
+          "data": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 2.5,
+            "ground_speed": 1.5,
+            "in_avoidance_mode": false,
+            "status": "WP_1_NAV"
+          }
+        },
+        {
+          "event": "PAYLOAD_TRIGGER",
+          "timestamp": "2026-09-24T15:20:22+00:00",
+          "data": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 2.5,
+            "action": "CAPTURE_IMAGE",
+            "filename": "warehouse_bay_gate.jpg"
+          }
+        },
+        {
+          "event": "WAYPOINT_REACHED",
+          "timestamp": "2026-09-24T15:20:34+00:00",
+          "data": {
+            "x": -5.0,
+            "y": 0.0,
+            "z": 2.5,
+            "wp_index": 2
+          }
+        },
+        {
+          "event": "NAVIGATION_STATUS",
+          "timestamp": "2026-09-24T15:20:34+00:00",
+          "data": {
+            "x": -5.0,
+            "y": 0.0,
+            "z": 2.5,
+            "ground_speed": 1.5,
+            "in_avoidance_mode": false,
+            "status": "WP_2_NAV"
+          }
+        },
+        {
+          "event": "WAYPOINT_REACHED",
+          "timestamp": "2026-09-24T15:20:46+00:00",
+          "data": {
+            "x": -5.0,
+            "y": 2.5,
+            "z": 2.5,
+            "wp_index": 3
+          }
+        },
+        {
+          "event": "NAVIGATION_STATUS",
+          "timestamp": "2026-09-24T15:20:46+00:00",
+          "data": {
+            "x": -5.0,
+            "y": 2.5,
+            "z": 2.5,
+            "ground_speed": 1.5,
+            "in_avoidance_mode": false,
+            "status": "WP_3_NAV"
+          }
+        },
+        {
+          "event": "PAYLOAD_TRIGGER",
+          "timestamp": "2026-09-24T15:20:48+00:00",
+          "data": {
+            "x": -5.0,
+            "y": 2.5,
+            "z": 2.5,
+            "action": "CAPTURE_IMAGE",
+            "filename": "warehouse_rack_aisle_1.jpg"
+          }
+        },
+        {
+          "event": "WAYPOINT_REACHED",
+          "timestamp": "2026-09-24T15:21:00+00:00",
+          "data": {
+            "x": 3.0,
+            "y": 2.5,
+            "z": 2.5,
+            "wp_index": 4
+          }
+        },
+        {
+          "event": "NAVIGATION_STATUS",
+          "timestamp": "2026-09-24T15:21:00+00:00",
+          "data": {
+            "x": 3.0,
+            "y": 2.5,
+            "z": 2.5,
+            "ground_speed": 1.5,
+            "in_avoidance_mode": false,
+            "status": "WP_4_NAV"
+          }
+        },
+        {
+          "event": "WAYPOINT_REACHED",
+          "timestamp": "2026-09-24T15:21:12+00:00",
+          "data": {
+            "x": 3.0,
+            "y": 5.0,
+            "z": 2.5,
+            "wp_index": 5
+          }
+        },
+        {
+          "event": "NAVIGATION_STATUS",
+          "timestamp": "2026-09-24T15:21:12+00:00",
+          "data": {
+            "x": 3.0,
+            "y": 5.0,
+            "z": 2.5,
+            "ground_speed": 1.5,
+            "in_avoidance_mode": false,
+            "status": "WP_5_NAV"
+          }
+        },
+        {
+          "event": "PAYLOAD_TRIGGER",
+          "timestamp": "2026-09-24T15:21:14+00:00",
+          "data": {
+            "x": 3.0,
+            "y": 5.0,
+            "z": 2.5,
+            "action": "CAPTURE_IMAGE",
+            "filename": "warehouse_pallet_storage.jpg"
+          }
+        },
+        {
+          "event": "WAYPOINT_REACHED",
+          "timestamp": "2026-09-24T15:21:26+00:00",
+          "data": {
+            "x": -5.0,
+            "y": 5.0,
+            "z": 2.5,
+            "wp_index": 6
+          }
+        },
+        {
+          "event": "NAVIGATION_STATUS",
+          "timestamp": "2026-09-24T15:21:26+00:00",
+          "data": {
+            "x": -5.0,
+            "y": 5.0,
+            "z": 2.5,
+            "ground_speed": 1.5,
+            "in_avoidance_mode": false,
+            "status": "WP_6_NAV"
+          }
+        },
+        {
+          "event": "WAYPOINT_REACHED",
+          "timestamp": "2026-09-24T15:21:38+00:00",
+          "data": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 2.5,
+            "wp_index": 7
+          }
+        },
+        {
+          "event": "NAVIGATION_STATUS",
+          "timestamp": "2026-09-24T15:21:38+00:00",
+          "data": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 2.5,
+            "ground_speed": 1.5,
+            "in_avoidance_mode": false,
+            "status": "WP_7_NAV"
+          }
+        },
+        {
+          "event": "FLIGHT_MODE_CHANGE",
+          "timestamp": "2026-09-24T15:21:48+00:00",
+          "data": {
+            "mode": "LAND"
+          }
+        },
+        {
+          "event": "NAVIGATION_STATUS",
+          "timestamp": "2026-09-24T15:21:56+00:00",
+          "data": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0,
+            "ground_speed": 0.0,
+            "in_avoidance_mode": false,
+            "status": "LANDED_SAFE"
+          }
+        }
+      ]
+    }
+  ]
+}

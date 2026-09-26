@@ -212,5 +212,5 @@ def test_8_cloud_and_closed_loop_management():
     report = harvest_flight_report(save_to_disk=False)
     assert "report" in report
     assert "markdown_report" in report
-    assert "Autonomous Flight Report" in report["markdown_report"]
+    assert "Flight Execution Report" in report["markdown_report"]
 

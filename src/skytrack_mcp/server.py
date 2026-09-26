@@ -1,4 +1,4 @@
-"""SkyTrack FastMCP Server — Map Inspection, Visual Route Drawing, and Python UAV Execution."""
+"""SkyTrack FastMCP Server — Complete Production Implementation."""
 
 from __future__ import annotations
 
@@ -33,17 +33,80 @@ from skytrack_mcp.clients.gcs_client import SkyTrackGCSClient
 from skytrack_mcp.clients.storage_sync import (
     list_all_missions,
     read_mission_details,
+    resolve_mission_dir,
     write_python_script,
     write_visual_route,
+)
+from skytrack_mcp.core.errors import SkyTrackError, SkyTrackErrorCode
+from skytrack_mcp.report.parser import (
+    harvest_mission_report_data,
+    render_markdown_flight_report,
+)
+from skytrack_mcp.mcp.prompts import get_prompt_templates
+from skytrack_mcp.mcp.resources import (
+    get_capabilities_resource,
+    get_current_mission_resource,
+    get_current_report_resource,
+    get_errors_catalog_resource,
+    get_mission_schema_resource,
+    get_operator_guide_resource,
+    get_vehicles_resource,
+    get_worlds_resource,
+)
+from skytrack_mcp.mcp.tools import (
+    tool_skytrack_clone_mission,
+    tool_skytrack_create_mission,
+    tool_skytrack_capture_world,
+    tool_skytrack_diagnostics,
+    tool_skytrack_docker_status,
+    tool_skytrack_export_mission,
+    tool_skytrack_focus,
+    tool_skytrack_get_context,
+    tool_skytrack_get_mission,
+    tool_skytrack_get_mission_json,
+    tool_skytrack_get_vehicle_context,
+    tool_skytrack_get_version,
+    tool_skytrack_get_world_context,
+    tool_skytrack_healthcheck,
+    tool_skytrack_import_mission,
+    tool_skytrack_inspect_world,
+    tool_skytrack_launch,
+    tool_skytrack_list_missions,
+    tool_skytrack_list_projects,
+    tool_skytrack_list_vehicles,
+    tool_skytrack_list_worlds,
+    tool_skytrack_logs,
+    tool_skytrack_open_mission,
+    tool_skytrack_patch_mission,
+    tool_skytrack_recover,
+    tool_skytrack_report_export,
+    tool_skytrack_report_read,
+    tool_skytrack_save_mission,
+    tool_skytrack_select_vehicle,
+    tool_skytrack_select_world,
+    tool_skytrack_set_mission,
+    tool_skytrack_simulation_observe,
+    tool_skytrack_simulation_restart,
+    tool_skytrack_simulation_start,
+    tool_skytrack_simulation_state,
+    tool_skytrack_simulation_stop,
+    tool_skytrack_status,
+    tool_skytrack_validate_mission,
+    tool_skytrack_verify_mission_requirements,
+    tool_ui_click,
+    tool_ui_get_state,
+    tool_ui_key,
+    tool_ui_snapshot,
+    tool_ui_type,
 )
 
 mcp = FastMCP(
     "SkyTrack UAV MCP",
     instructions=(
-        "MCP Server for inspecting SkyTrack 3D Gazebo worlds & live UAV telemetry, "
-        "planning and drawing visual routes onto the SkyTrack Electron map UI (plan.json), "
-        "executing routes via GCS Backend (:20002) & Path Planner (:20007), and authoring/running "
-        "Python UAV autonomy scripts (local_planner SDK) inside the ROS 2 Jazzy container."
+        "Comprehensive MCP integration for SkyTrack Mission Studio. "
+        "Allows autonomous AI agents to inspect 3D Gazebo environments, construct and validate "
+        "missions, manipulate visual routes and Python autonomy scripts, manage Docker simulation "
+        "lifecycles, execute flights, monitor live telemetry, and verify outcomes against mission reports."
     ),
 )
 
@@ -51,7 +114,167 @@ _gcs = SkyTrackGCSClient()
 
 
 # =====================================================================
-# 1. MAP & TELEMETRY INSPECTION TOOLS
+# MCP RESOURCES (skytrack://...)
+# =====================================================================
+
+
+@mcp.resource("skytrack://docs/operator-guide")
+def resource_operator_guide() -> str:
+    """SkyTrack autonomous mission operator guide."""
+    return get_operator_guide_resource()
+
+
+@mcp.resource("skytrack://schema/mission")
+def resource_mission_schema() -> str:
+    """Canonical JSON Schema for SkyTrack missions."""
+    return get_mission_schema_resource()
+
+
+@mcp.resource("skytrack://worlds")
+def resource_worlds() -> str:
+    """Available Gazebo 3D simulation worlds."""
+    return get_worlds_resource()
+
+
+@mcp.resource("skytrack://vehicles")
+def resource_vehicles() -> str:
+    """Available drone models, accessories, and capabilities."""
+    return get_vehicles_resource()
+
+
+@mcp.resource("skytrack://errors/catalog")
+def resource_errors_catalog() -> str:
+    """Standardized error codes catalog for SkyTrack."""
+    return get_errors_catalog_resource()
+
+
+@mcp.resource("skytrack://capabilities")
+def resource_capabilities() -> str:
+    """SkyTrack MCP server capabilities and adapter features."""
+    return get_capabilities_resource()
+
+
+@mcp.resource("skytrack://current/mission")
+def resource_current_mission() -> str:
+    """JSON details of the active mission in ClientData."""
+    return get_current_mission_resource()
+
+
+@mcp.resource("skytrack://current/report")
+def resource_current_report() -> str:
+    """Latest flight report in Markdown for the active mission."""
+    return get_current_report_resource()
+
+
+# =====================================================================
+# MCP PROMPTS
+# =====================================================================
+
+
+@mcp.prompt()
+def skytrack_solve_mission(assignment: str, world: str = "", vehicle: str = "") -> str:
+    """Orchestrates the full Observe -> Plan -> Execute -> Verify autonomous mission workflow."""
+    tpl = get_prompt_templates()["skytrack-solve-mission"]["template"]
+    return tpl.format(assignment=assignment, world=world or "active", vehicle=vehicle or "active")
+
+
+@mcp.prompt()
+def skytrack_inspect_world_prompt(world_name: str, altitude_m: float = 2.5) -> str:
+    """Inspect 3D Gazebo environment, obstacles, racks, and clearance corridors at flight altitude."""
+    tpl = get_prompt_templates()["skytrack-inspect-world"]["template"]
+    return tpl.format(world_name=world_name, altitude_m=altitude_m)
+
+
+@mcp.prompt()
+def skytrack_debug_mission(mission_id: str = "") -> str:
+    """Diagnose a failing or stuck mission, analyze errors, and repair route/code."""
+    tpl = get_prompt_templates()["skytrack-debug-mission"]["template"]
+    return tpl.format(mission_id=mission_id or "active")
+
+
+@mcp.prompt()
+def skytrack_review_route(world_name: str, waypoints_json: str) -> str:
+    """Statically review candidate route waypoints against vehicle limits and 3D terrain."""
+    tpl = get_prompt_templates()["skytrack-review-route"]["template"]
+    return tpl.format(world_name=world_name, waypoints_json=waypoints_json)
+
+
+@mcp.prompt()
+def skytrack_explain_report(mission_id: str = "") -> str:
+    """Analyze an official SkyTrack flight report and provide executive summary."""
+    tpl = get_prompt_templates()["skytrack-explain-report"]["template"]
+    return tpl.format(mission_id=mission_id or "active")
+
+
+# =====================================================================
+# MCP TOOLS — STANDARDIZED CAPABILITY GROUPS
+# =====================================================================
+
+# 1. Environment / Application
+mcp.tool()(tool_skytrack_status)
+mcp.tool()(tool_skytrack_launch)
+mcp.tool()(tool_skytrack_focus)
+mcp.tool()(tool_skytrack_get_version)
+mcp.tool()(tool_skytrack_get_context)
+mcp.tool()(tool_skytrack_healthcheck)
+
+# 2. Projects / Missions
+mcp.tool()(tool_skytrack_list_projects)
+mcp.tool()(tool_skytrack_list_missions)
+mcp.tool()(tool_skytrack_open_mission)
+mcp.tool()(tool_skytrack_create_mission)
+mcp.tool()(tool_skytrack_clone_mission)
+mcp.tool()(tool_skytrack_export_mission)
+mcp.tool()(tool_skytrack_import_mission)
+
+# 3. Mission Structured Access
+mcp.tool()(tool_skytrack_get_mission)
+mcp.tool()(tool_skytrack_get_mission_json)
+mcp.tool()(tool_skytrack_validate_mission)
+mcp.tool()(tool_skytrack_patch_mission)
+mcp.tool()(tool_skytrack_set_mission)
+mcp.tool()(tool_skytrack_save_mission)
+
+# 4. World / Environment
+mcp.tool()(tool_skytrack_list_worlds)
+mcp.tool()(tool_skytrack_select_world)
+mcp.tool()(tool_skytrack_get_world_context)
+mcp.tool()(tool_skytrack_inspect_world)
+mcp.tool()(tool_skytrack_capture_world)
+
+# 5. Vehicle
+mcp.tool()(tool_skytrack_list_vehicles)
+mcp.tool()(tool_skytrack_select_vehicle)
+mcp.tool()(tool_skytrack_get_vehicle_context)
+
+# 6. UI / Computer Use
+mcp.tool()(tool_ui_snapshot)
+mcp.tool()(tool_ui_click)
+mcp.tool()(tool_ui_type)
+mcp.tool()(tool_ui_key)
+mcp.tool()(tool_ui_get_state)
+
+# 7. Simulation Control & Observation
+mcp.tool()(tool_skytrack_simulation_start)
+mcp.tool()(tool_skytrack_simulation_stop)
+mcp.tool()(tool_skytrack_simulation_restart)
+mcp.tool()(tool_skytrack_simulation_state)
+mcp.tool()(tool_skytrack_simulation_observe)
+
+# 8. Reports & Verification
+mcp.tool()(tool_skytrack_report_read)
+mcp.tool()(tool_skytrack_report_export)
+mcp.tool()(tool_skytrack_verify_mission_requirements)
+
+# 9. Diagnostics & Recovery
+mcp.tool()(tool_skytrack_logs)
+mcp.tool()(tool_skytrack_docker_status)
+mcp.tool()(tool_skytrack_diagnostics)
+mcp.tool()(tool_skytrack_recover)
+
+
+# =====================================================================
+# MCP TOOLS — COMPOSITE CONVENIENCE PRIMITIVES
 # =====================================================================
 
 
@@ -59,9 +282,6 @@ _gcs = SkyTrackGCSClient()
 async def list_missions_and_worlds() -> Dict[str, Any]:
     """List all SkyTrack projects and missions in local ClientData along with all available
     3D Gazebo worlds (.sdf) and Path Planner API health status.
-
-    Call this first to discover the active mission_id, current world (e.g. 'warehouse', 'default'),
-    vehicle type, and current spawn location.
     """
     missions = list_all_missions()
     worlds = list_gazebo_worlds()
@@ -81,7 +301,7 @@ async def list_missions_and_worlds() -> Dict[str, Any]:
 @mcp.tool()
 def get_mission_state(mission_id: Optional[str] = None) -> Dict[str, Any]:
     """Read the full state of a SkyTrack mission (mission.json metadata, plan.json visual route,
-    and script.py Python code). If mission_id is omitted, reads the most recently active mission.
+    and script.py Python code).
     """
     return read_mission_details(mission_id=mission_id)
 
@@ -94,14 +314,7 @@ def inspect_world_map(
     grid_resolution: int = 31,
 ) -> Dict[str, Any]:
     """Inspect a 3D Gazebo world (.sdf) to extract all obstacles/buildings/walls with their
-    exact 3D bounding boxes (AABB in ENU meters) and generate a 2D top-down ASCII occupancy map
-    at the desired flight altitude `slice_altitude_m`.
-
-    Coordinate convention:
-    - X = East (meters)
-    - Y = North (meters)
-    - Z = Up / Altitude (meters)
-    - 'S' on the ASCII map marks origin (0, 0), '#' marks obstacles at `slice_altitude_m`, '.' is free space.
+    exact 3D bounding boxes (AABB in ENU meters) and generate a 2D top-down ASCII occupancy map.
     """
     return inspect_world_sdf(
         world_name=world_name,
@@ -118,9 +331,7 @@ def check_route_collisions(
     clearance_m: float = 0.4,
 ) -> Dict[str, Any]:
     """Verify whether a sequence of 3D ENU waypoints `[[x, y, z], ...]` is collision-free against
-    all 3D collision geometries in `world_name.sdf` (with an obstacle inflation safety margin of `clearance_m`).
-
-    Returns `is_collision_free: True/False` and details of any intersecting wall/obstacle legs.
+    all 3D collision geometries in `world_name.sdf`.
     """
     return check_waypoints_collisions(
         world_name=world_name,
@@ -131,26 +342,13 @@ def check_route_collisions(
 
 @mcp.tool()
 async def get_uav_telemetry() -> Dict[str, Any]:
-    """Fetch real-time UAV telemetry from the MAVLink bridge and GCS action feedback stream.
-
-    Returns:
-    - `is_armed`, `landed_state` ('ON_GROUND', 'IN_AIR', etc.), `flight_mode`
-    - `battery_percentage`, `heading_deg`, `attitude_deg` (roll, pitch, yaw)
-    - `local_enu_m` ({x_east_m, y_north_m, z_up_m}) and `local_ned_m` ({north_m, east_m, down_m})
-    - `gps_position` (lat, lng, altitude) and `home_point`
-    - `gcs_action_feedback` (status of takeoff, land, rtl, mission_execution)
-    """
+    """Fetch real-time UAV telemetry from the MAVLink bridge and GCS action feedback stream."""
     mav_data = fetch_live_mavlink_telemetry()
     gcs_fb = await _gcs.get_gcs_feedback_snapshot()
     return {
         "telemetry": mav_data,
         "gcs_action_feedback": gcs_fb,
     }
-
-
-# =====================================================================
-# 2. ROUTE PLANNING & VISUAL MAP DRAWING TOOLS
-# =====================================================================
 
 
 @mcp.tool()
@@ -164,20 +362,7 @@ async def plan_coverage_route(
     save_to_mission_ui: bool = True,
     mission_id: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Generate an optimized zigzag coverage route inside a polygon area (in local ENU meters `[{"x": ..., "y": ...}]`)
-    using the SkyTrack Path Planner API (:20007), optionally split around No-Fly Zones, and draw it onto
-    the SkyTrack map UI (`plan.json`).
-
-    Args:
-        area_coords: List of polygon vertices `[{"x": float, "y": float}, ...]` (minimum 3 vertices).
-        spacing_m: Distance between parallel sweep lines in meters.
-        orientation_deg: Sweep angle in degrees (default 90.0).
-        altitude_m: Flight altitude Z in meters for the generated waypoints.
-        hole_coords: Optional list of obstacle polygon holes inside the area.
-        no_fly_zones: Optional list of NFZ definitions to split legs around.
-        save_to_mission_ui: If True, automatically draws the computed route into `plan.json` of `mission_id`.
-        mission_id: Target mission ID (defaults to active mission).
-    """
+    """Generate an optimized zigzag coverage route inside a polygon area using Path Planner API (:20007)."""
     plan_res = await _gcs.plan_coverage_xy(
         area_coords=area_coords,
         spacing=spacing_m,
@@ -229,15 +414,7 @@ def draw_route_on_map(
     world: Optional[str] = None,
     vehicle: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Draw a visual route directly onto the SkyTrack Map UI (`plan.json` & `mission.json`).
-
-    Each item in `waypoints` can be:
-    - `{"x": 4.0, "y": -5.0, "z": 2.5}` (ENU meters: x=East, y=North, z=Up altitude)
-    - Optionally include `"after_action": "drop-ball" | "take-photo" | "start-recording-video" | "stop-recording-video"`
-      to attach payload or camera actions at that waypoint!
-
-    This sets `codeMode: false` on the mission so the route is visible in the SkyTrack Map view.
-    """
+    """Draw a visual route directly onto the SkyTrack Map UI (`plan.json` & `mission.json`)."""
     return write_visual_route(
         waypoints=waypoints,
         mission_id=mission_id,
@@ -262,11 +439,7 @@ async def execute_route_mission(
     end_action: str = "rtl",
     also_save_to_ui: bool = True,
 ) -> Dict[str, Any]:
-    """Execute a waypoint route mission on the UAV via the GCS Control API (`POST :20002/mission/v2/execute`).
-
-    If `waypoints` is provided, optionally saves them to `plan.json` (`also_save_to_ui=True`) and dispatches
-    them to the drone. If `waypoints` is omitted, loads the saved waypoints from `plan.json` of `mission_id`.
-    """
+    """Execute a waypoint route mission on the UAV via GCS API (`POST :20002/mission/v2/execute`)."""
     if waypoints is None:
         details = read_mission_details(mission_id=mission_id)
         plan = details.get("plan", {})
@@ -310,86 +483,39 @@ async def control_uav_flight(
     altitude_m: float = 2.5,
     smart: bool = True,
 ) -> Dict[str, Any]:
-    """Send direct flight or mission control commands to the UAV (:20002).
-
-    Supported `command` values:
-    - `'takeoff'`: Take off to `altitude_m` (1.0m - 50.0m).
-    - `'land'`: Land at current position (`smart=True` uses planner-assisted landing).
-    - `'rtl'`: Return to launch point (`smart=True` uses planner-assisted RTL).
-    - `'pause_mission'`: Pause active mission execution.
-    - `'resume_mission'`: Resume paused mission.
-    - `'cancel_mission'`: Cancel current mission execution.
-    - `'smart_land'`: Trigger emergency smart landing.
-    """
-    return await _gcs.control_flight_or_mission(
-        command=command,
-        altitude_m=altitude_m,
-        smart=smart,
-    )
-
-
-# =====================================================================
-# 3. PYTHON UAV CODE AUTHORING & EXECUTION TOOLS
-# =====================================================================
+    """Send direct flight or mission control commands to the UAV (:20002)."""
+    return await send_direct_flight_command(command=command, altitude_m=altitude_m, smart=smart)
 
 
 @mcp.tool()
 def get_uav_python_sdk_reference() -> Dict[str, Any]:
-    """Return the exact function signatures, coordinate conventions, and verified templates
-    for writing SkyTrack UAV Python scripts using the `local_planner` SDK.
-
-    Always consult this before writing custom UAV Python scripts so function arguments match 100%.
-    """
+    """Return function signatures, coordinate conventions, and verified templates for SkyTrack Python SDK."""
     return {
         "sdk_module": "local_planner",
         "execution_container": "skytrack-simulation-skytrack-autonomy-1",
-        "important_rules": [
-            "1. `scenario(ctx)` MUST be a Python generator function using `yield` for each step.",
-            "2. Set `scenario.requires_senses = ['pose', 'obstacle', 'status']` on the scenario function.",
-            "3. `takeoff(*, alt_m=2.5)` uses keyword argument `alt_m` (NOT `altitude`).",
-            "4. `fly_to(north=..., east=..., alt_m=..., target_speed=...)` uses `north` (Y axis in ENU) and `east` (X axis in ENU), plus `alt_m` (positive meters up).",
-            "5. Always wrap execution in `with boot_drone() as drone: drone.fly(scenario); drone.run()`.",
-        ],
         "function_signatures": {
             "boot_drone": "boot_drone() -> ContextManager[Drone]",
             "takeoff": "takeoff(*, alt_m: float = 3.0, name: Optional[str] = None) -> SkillStep",
-            "fly_to": "fly_to(x=None, y=None, z=None, *, north: Optional[float] = None, east: Optional[float] = None, alt_m: Optional[float] = None, direct: bool = False, target_speed: Optional[float] = None, yaw_mode=None, yaw_rate_deg_s: Optional[float] = None, name: Optional[str] = None) -> SkillStep",
-            "fly_to_ned": "fly_to_ned(x: float, y: float, z: float, *, direct: bool = False, target_speed: Optional[float] = None, name: Optional[str] = None) -> SkillStep",
-            "orbit": "orbit(center=None, *, center_north: Optional[float] = None, center_east: Optional[float] = None, alt_m: Optional[float] = None, radius_m: float = 5.0, period_s: float = 20.0, duration_s: float = 60.0, name: str = 'orbit') -> SkillStep",
-            "helix": "helix(center=None, *, z_end=None, center_north: Optional[float] = None, center_east: Optional[float] = None, alt_m: Optional[float] = None, alt_m_end: Optional[float] = None, radius_m: float = 5.0, period_s: float = 20.0, duration_s: float = 60.0, name: str = 'helix') -> SkillStep",
-            "yaw_to": "yaw_to(face=None, *, north: Optional[float] = None, east: Optional[float] = None, name: str = 'yaw_to') -> SkillStep",
-            "capture": "capture(*, output_dir: str = '~/.ros/captures', filename: Optional[str] = None, timeout_s: float = 5.0, name: str = 'capture') -> SkillStep",
-            "brake": "brake(*, name: str = 'brake') -> SkillStep",
-            "brake_and_settle": "brake_and_settle(*, name: str = 'brake') -> SkillStep",
-            "land": "land(*, name: str = 'land') -> SkillStep",
+            "fly_to": "fly_to(x=None, y=None, z=None, *, north: Optional[float] = None, east: Optional[float] = None, alt_m: Optional[float] = None, direct: bool = False, target_speed: Optional[float] = None, name: Optional[str] = None) -> SkillStep",
+            "orbit": "orbit(center=None, *, center_north: Optional[float] = None, center_east: Optional[float] = None, alt_m: Optional[float] = None, radius_m: float = 5.0, duration_s: float = 60.0) -> SkillStep",
+            "capture": "capture(*, output_dir: str = '~/.ros/captures', filename: Optional[str] = None) -> SkillStep",
+            "brake": "brake() -> SkillStep",
+            "land": "land() -> SkillStep",
         },
         "example_script": (
-            '"""Autonomous UAV flight script using SkyTrack local_planner SDK."""\n\n'
-            "from typing import Any, Iterator\n"
-            "from local_planner import (\n"
-            "    boot_drone,\n"
-            "    takeoff,\n"
-            "    fly_to,\n"
-            "    orbit,\n"
-            "    capture,\n"
-            "    brake,\n"
-            "    land,\n"
-            ")\n\n"
-            "def scenario(ctx: Any) -> Iterator[Any]:\n"
-            "    yield takeoff(alt_m=2.5)\n"
-            "    yield fly_to(north=5.0, east=0.0, alt_m=2.5, target_speed=2.0)\n"
-            "    yield capture(filename='waypoint_1.jpg')\n"
-            "    yield orbit(center_north=5.0, center_east=2.0, alt_m=2.5, radius_m=2.0, duration_s=15.0)\n"
-            "    yield fly_to(north=0.0, east=0.0, alt_m=2.5)\n"
-            "    yield brake()\n"
-            "    yield land()\n\n"
+            'from typing import Any, Iterator\n'
+            'from local_planner import boot_drone, takeoff, fly_to, land\n\n'
+            'def scenario(ctx: Any) -> Iterator[Any]:\n'
+            '    yield takeoff(alt_m=2.5)\n'
+            '    yield fly_to(north=5.0, east=0.0, alt_m=2.5)\n'
+            '    yield land()\n\n'
             'scenario.requires_senses = ["pose", "obstacle", "status"]\n\n'
-            "def main() -> None:\n"
-            "    with boot_drone() as drone:\n"
-            "        drone.fly(scenario)\n"
-            "        drone.run()\n\n"
+            'def main() -> None:\n'
+            '    with boot_drone() as drone:\n'
+            '        drone.fly(scenario)\n'
+            '        drone.run()\n\n'
             'if __name__ == "__main__":\n'
-            "    main()\n"
+            '    main()\n'
         ),
     }
 
@@ -456,11 +582,7 @@ def convert_route_to_python_script(
     target_speed: float = 2.0,
     save_to_mission: bool = True,
 ) -> Dict[str, Any]:
-    """Convert a visual waypoint route (either passed as `waypoints` or read from `plan.json` of `mission_id`)
-    into a runnable SkyTrack `local_planner` Python script (`script.py`).
-
-    Automatically maps ENU `x` -> `east` and ENU `y` -> `north`, and translates camera/payload actions.
-    """
+    """Convert visual waypoints into a runnable SkyTrack Python script."""
     if waypoints is None:
         details = read_mission_details(mission_id=mission_id)
         plan = details.get("plan", {})
@@ -477,18 +599,13 @@ def convert_route_to_python_script(
         wp_type = wp.get("type", "navigate")
         if wp_type in ("navigate", "navigation", "waypoint") or ("x" in wp and "y" in wp):
             if "data" in wp and isinstance(wp["data"], list) and len(wp["data"]) == 3:
-                east_x, north_y, alt_z = (
-                    float(wp["data"][0]),
-                    float(wp["data"][1]),
-                    float(wp["data"][2]),
-                )
+                east_x, north_y, alt_z = float(wp["data"][0]), float(wp["data"][1]), float(wp["data"][2])
             else:
                 east_x = float(wp.get("x", wp.get("east", 0.0)))
                 north_y = float(wp.get("y", wp.get("north", 0.0)))
                 alt_z = float(wp.get("z", wp.get("alt_m", takeoff_altitude)))
             steps.append(
-                f"    yield fly_to(north={north_y:.3f}, east={east_x:.3f}, "
-                f"alt_m={alt_z:.3f}, target_speed={target_speed:.2f}, name='wp_{idx}')"
+                f"    yield fly_to(north={north_y:.3f}, east={east_x:.3f}, alt_m={alt_z:.3f}, target_speed={target_speed:.2f}, name='wp_{idx}')"
             )
             if wp.get("after_action") in ("take-photo", "snapshot"):
                 steps.append(f"    yield capture(filename='wp_{idx}.jpg')")
@@ -529,7 +646,6 @@ def main() -> None:
 if __name__ == "__main__":
     main()
 '''
-
     save_info = None
     if save_to_mission:
         save_info = write_python_script(
@@ -550,15 +666,10 @@ def write_and_save_uav_script(
     mission_id: Optional[str] = None,
     switch_to_code_mode: bool = True,
 ) -> Dict[str, Any]:
-    """Validate a Python UAV script (AST syntax & `local_planner` keyword verification) and save it
-    to `script.py` in the SkyTrack mission folder so it appears in the SkyTrack App Code Editor.
-    """
+    """Validate AST and save code to script.py in target mission directory."""
     validation = validate_uav_python_code(python_code)
     if not validation["valid"]:
-        return {
-            "saved": False,
-            "validation": validation,
-        }
+        return {"saved": False, "validation": validation}
 
     saved_info = write_python_script(
         python_code=python_code,
@@ -579,13 +690,7 @@ def execute_uav_python_script(
     background: bool = True,
     wait_seconds: float = 3.5,
 ) -> Dict[str, Any]:
-    """Deploy and execute a Python UAV script inside the `skytrack-simulation-skytrack-autonomy-1`
-    container with ROS 2 Jazzy and `local_planner` initialized.
-
-    - If `python_code` is passed, it is validated, saved to `script.py` of `mission_id`, copied into
-      the autonomy container, and started.
-    - If `python_code` is omitted, the existing `script.py` from `mission_id` is executed.
-    """
+    """Execute Python script in ROS 2 Jazzy skytrack-autonomy container."""
     if python_code is not None:
         validation = validate_uav_python_code(python_code)
         if not validation["valid"]:
@@ -618,28 +723,19 @@ def execute_uav_python_script(
 
 @mcp.tool()
 def stop_uav_python_script() -> Dict[str, Any]:
-    """Stop any currently running Python UAV script (`user-script.py`) inside `skytrack-simulation-skytrack-autonomy-1`."""
+    """Stop any currently running Python UAV script in autonomy container."""
     return stop_uav_python_in_container()
 
 
 @mcp.tool()
 def get_uav_script_logs(tail_lines: int = 80) -> Dict[str, Any]:
-    """Read stdout/stderr logs and running state of the Python UAV script inside `skytrack-simulation-skytrack-autonomy-1`."""
+    """Read logs of Python UAV script inside autonomy container."""
     return read_uav_python_logs(tail_lines=tail_lines)
-
-
-# =====================================================================
-# 4. CLOUD API, SIMULATION LIFECYCLE & CLOSED-LOOP WORKFLOW TOOLS
-# =====================================================================
 
 
 @mcp.tool()
 def list_skytrack_cloud_projects() -> List[Dict[str, Any]]:
-    """List all projects for the authenticated user directly from the SkyTrack Cloud API
-    (https://platform.getskytrack.com/api/v1/projects).
-
-    Returns project IDs (e.g. '01M11QPK1C3Y5GFNBDADS8H7MC'), names, and mission counts.
-    """
+    """List all projects for current user from SkyTrack Cloud API."""
     return list_cloud_projects()
 
 
@@ -652,41 +748,20 @@ def create_mission_on_cloud(
     actions: Optional[List[Dict[str, Any]]] = None,
     spawn_location: Optional[List[float]] = None,
 ) -> Dict[str, Any]:
-    """Create a new mission directly on the SkyTrack Cloud Platform AND initialize its
-    local runtime cache in `ClientData/prj-.../mis-...`.
-
-    This immediately makes the mission appear inside the SkyTrack Desktop App and Mobile UI!
-    """
-    cloud_res = create_cloud_mission(
+    """Create a mission on Cloud and initialize local ClientData cache."""
+    return tool_skytrack_create_mission(
         name=name,
         project_id=project_id,
         world=world,
-        actions=actions or [],
-    )
-    new_mis_id = str(cloud_res.get("id") or "").removeprefix("mis-")
-
-    # Sync local ClientData cache so Electron can open it locally
-    draw_res = write_visual_route(
-        waypoints=actions or [],
-        mission_id=new_mis_id,
-        spawn_location=spawn_location or [0.0, 0.0, 0.0],
-        takeoff_altitude=2.5,
-        target_speed=2.0,
-        world=world,
         vehicle=vehicle,
+        actions=actions,
+        spawn_location=spawn_location,
     )
-
-    return {
-        "cloud_mission": cloud_res,
-        "local_cache": draw_res,
-    }
 
 
 @mcp.tool()
 def sync_mission_to_cloud(mission_id: Optional[str] = None) -> Dict[str, Any]:
-    """Upload local changes from `plan.json` and `mission.json` to the SkyTrack Cloud Platform
-    so the web/app UI shows the latest waypoints and actions.
-    """
+    """Upload local changes from plan.json and mission.json to SkyTrack Cloud."""
     details = read_mission_details(mission_id=mission_id)
     mis_id = details["mission_id"]
     plan = details.get("plan", {})
@@ -716,15 +791,7 @@ def manage_simulation_stack(
     vehicle: str = "x500_livox_mid_360",
     spawn_pose: Optional[List[float]] = None,
 ) -> Dict[str, Any]:
-    """Manage the SkyTrack Docker Simulation Stack.
-
-    Args:
-        action: 'status' (check container health), 'start' (boot deamon + simulation containers),
-                or 'stop' (shut down simulation).
-        world: World name to boot (e.g. 'warehouse', 'default', 'farm-petersburg').
-        vehicle: Vehicle model (e.g. 'x500_livox_mid_360', 'x500_tennis_balls_no_cam', 'x500_mono_cam').
-        spawn_pose: Optional [x, y, z] spawn position in meters.
-    """
+    """Manage SkyTrack Docker Simulation Stack (action: 'status' | 'start' | 'stop')."""
     act = action.lower().strip()
     if act == "status":
         return get_simulation_health()
@@ -732,7 +799,7 @@ def manage_simulation_stack(
         return start_simulation_stack(world=world, vehicle=vehicle, spawn_pose=spawn_pose)
     if act == "stop":
         return stop_simulation_stack()
-    raise ValueError(f"Unknown action '{action}'. Valid actions: 'status', 'start', 'stop'.")
+    raise ValueError(f"Unknown action '{action}'. Valid: 'status', 'start', 'stop'.")
 
 
 @mcp.tool()
@@ -742,62 +809,22 @@ async def run_mission_and_wait_completion(
     poll_interval_s: float = 3.0,
     max_wait_seconds: float = 120.0,
 ) -> Dict[str, Any]:
-    """Closed-loop autonomous flight execution:
-    1. Sends the mission to the UAV via GCS API (:20002).
-    2. Polls live telemetry every `poll_interval_s` seconds, monitoring position, battery, and flight state.
-    3. Detects liftoff (`IN_AIR`), waypoint progress, and safe landing (`ON_GROUND`).
-    4. Returns a comprehensive flight summary upon mission completion.
-    """
+    """Closed-loop autonomous flight execution with live polling until safe landing."""
     exec_res = await execute_route_mission(
         waypoints=waypoints,
         mission_id=mission_id,
         also_save_to_ui=True,
     )
     if not exec_res.get("ok"):
-        return {
-            "status": "failed_to_dispatch",
-            "error": exec_res.get("response"),
-        }
+        return {"status": "failed_to_dispatch", "error": exec_res.get("response")}
 
-    import asyncio
-    import time
-
-    start_time = time.time()
-    telemetry_samples: List[Dict[str, Any]] = []
-    airborne_detected = False
-    landed_after_airborne = False
-
-    while (time.time() - start_time) < max_wait_seconds:
-        await asyncio.sleep(poll_interval_s)
-        tel_data = fetch_live_mavlink_telemetry()
-        landed_state = tel_data.get("landed_state")
-
-        sample = {
-            "elapsed_s": round(time.time() - start_time, 1),
-            "landed_state": landed_state,
-            "flight_mode": tel_data.get("flight_mode"),
-            "battery": tel_data.get("battery_percentage"),
-            "enu": tel_data.get("local_enu_m"),
-            "armed": tel_data.get("is_armed"),
-        }
-        telemetry_samples.append(sample)
-
-        if landed_state in ("IN_AIR", "TAKEOFF", "LANDING"):
-            airborne_detected = True
-
-        if airborne_detected and landed_state == "ON_GROUND":
-            landed_after_airborne = True
-            break
-
-    total_duration = round(time.time() - start_time, 1)
+    obs = await observe_simulation_execution(
+        max_duration_s=max_wait_seconds,
+        poll_interval_s=poll_interval_s,
+    )
     return {
-        "status": "completed_safely" if landed_after_airborne else "finished_or_timeout",
-        "airborne_detected": airborne_detected,
-        "landed_safely": landed_after_airborne,
-        "total_duration_s": total_duration,
-        "sample_count": len(telemetry_samples),
-        "final_telemetry": telemetry_samples[-1] if telemetry_samples else None,
-        "telemetry_samples": telemetry_samples,
+        "status": "completed_safely" if obs["completed"] else "timeout_or_failed",
+        "observation": obs,
     }
 
 
@@ -806,68 +833,18 @@ def harvest_flight_report(
     mission_id: Optional[str] = None,
     save_to_disk: bool = True,
 ) -> Dict[str, Any]:
-    """Harvest flight execution events, telemetry history, and container logs, and compile
-    an official Flight Report (`flight_report.json` and `flight_report.md`) inside the mission folder.
-    """
-    import datetime
-
-    details = read_mission_details(mission_id=mission_id)
-    mis_dir = Path(details["path"])
-    mis_id = details["mission_id"]
-    prj_id = details["project_id"]
-
-    logs = read_uav_python_logs(tail_lines=100)
-    telem = fetch_live_mavlink_telemetry()
-
-    plan = details.get("plan", {})
-    mission_meta = details.get("mission", {})
-    sequences = plan.get("sequences", [])
-    actions = []
-    for seq in sequences:
-        actions.extend(seq.get("actions", []))
-
-    report_data = {
-        "project_id": prj_id,
-        "mission_id": mis_id,
-        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-        "world": mission_meta.get("world", "default"),
-        "vehicle": mission_meta.get("vehicle", "x500_livox_mid_360"),
-        "total_actions": len(actions),
-        "final_telemetry": telem,
-        "autonomy_logs_summary": logs.get("logs", "")[-500:],
-    }
-
-    md_report = f"""# SkyTrack Autonomous Flight Report
-
-- **Mission ID:** `{mis_id}`
-- **Project ID:** `{prj_id}`
-- **Date/Time:** {report_data['timestamp']}
-- **Simulation World:** `{report_data['world']}`
-- **Vehicle Model:** `{report_data['vehicle']}`
-- **Planned Waypoints / Actions:** {len(actions)}
-
-## 1. Flight Telemetry Status
-- **Connection:** {'Connected' if telem.get('connected') else 'Disconnected'}
-- **Landed State:** `{telem.get('landed_state')}`
-- **Battery Remaining:** `{telem.get('battery_percentage')}%`
-- **Flight Mode:** `{telem.get('flight_mode')}`
-- **Final Local ENU Position:** `{telem.get('local_enu_m')}`
-
-## 2. Autonomy Container Execution Log
-```text
-{logs.get('logs', 'No logs recorded.')}
-```
-"""
+    """Compile structured flight report and Markdown summary from logs and telemetry."""
+    mis_dir, prj_id, mis_id = resolve_mission_dir(mission_id)
+    data = harvest_mission_report_data(mis_id, prj_id)
+    md = render_markdown_flight_report(data)
 
     if save_to_disk:
-        json_file = mis_dir / "flight_report.json"
-        md_file = mis_dir / "flight_report.md"
-        json_file.write_text(json.dumps(report_data, indent=2), encoding="utf-8")
-        md_file.write_text(md_report, encoding="utf-8")
+        (mis_dir / "flight_report.json").write_text(json.dumps(data, indent=2), encoding="utf-8")
+        (mis_dir / "flight_report.md").write_text(md, encoding="utf-8")
 
     return {
-        "report": report_data,
-        "markdown_report": md_report,
+        "report": data,
+        "markdown_report": md,
         "saved_to_folder": str(mis_dir) if save_to_disk else None,
     }
 
