@@ -28,6 +28,14 @@ def get_operator_guide_resource() -> str:
 
 3. Standard Autonomous Loop:
    Understand Assignment -> Inspect World -> Plan Route -> Validate -> Apply -> Simulate -> Observe -> Harvest Report -> Verify.
+
+4. SkyTrack Autonomy 6-Level Curriculum (`GetSkyTrack/skytrack-autonomy-example`):
+   - Level 1 (Basics): takeoff, fly_to(north, east, alt_m), brake, land.
+   - Level 2 (Patterns): orbit, helix, yaw_to, lawnmower (mode='coverage', replan_mode='fast').
+   - Level 3 (Logic): sub-missions via `yield from`, `ctx.senses.battery.percent` (0-100 scale).
+   - Level 4 (Media & AI): CameraSense, VideoRecorder, Snapshot, Sprayer, Detector.
+   - Level 5 (Custom Extensions): Custom Sense, Skill (ScheduleGroup.CONTROL, no time.sleep), Service (ScheduleGroup.MEDIA, no setpoints), ControlMode + Command.
+   - Level 6 (Full-Stack): Integrated site survey combining all of Levels 1-5.
 """
 
 

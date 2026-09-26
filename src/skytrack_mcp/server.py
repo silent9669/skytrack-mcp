@@ -12,6 +12,11 @@ try:
 except ImportError:
     from mcp.server.fastmcp import FastMCP
 
+from skytrack_mcp.autonomy_sdk import (
+    get_autonomy_level_template_data,
+    get_uav_python_sdk_reference_data,
+    validate_uav_python_code,
+)
 from skytrack_mcp.clients.cloud_client import (
     call_cloud_api,
     create_cloud_mission,
@@ -490,125 +495,24 @@ async def control_uav_flight(
 
 @mcp.tool()
 def get_uav_python_sdk_reference() -> Dict[str, Any]:
-    """Return function signatures, coordinate conventions, and verified templates for SkyTrack Python SDK
+    """Return the complete 6-level curriculum, function signatures, coordinate conventions,
+    extension contracts, and verified templates for the SkyTrack `local_planner` Python SDK
     (`GetSkyTrack/skytrack-autonomy-example` develop branch reference).
     """
-    return {
-        "sdk_module": "local_planner",
-        "execution_container": "skytrack-simulation-skytrack-autonomy-1",
-        "known_issues_and_rules": [
-            "1. Always start with `from __future__ import annotations` and define `UPPER_CASE` mission constants.",
-            "2. `takeoff(alt_m=...)` and `fly_to(north=..., east=..., alt_m=...)` require `alt_m` (positive meters up).",
-            "3. `fly_to` supports `mode='transit' | 'coverage' | 'direct'` and `replan_mode='fast' | 'slow'`.",
-            "4. Always `yield brake()` before `capture()` and before `land()` to eliminate motion blur and overshoot.",
-            "5. For video recording, register `drone.add_sense(CameraSense())` and `drone.add_service(VideoRecorder(output_dir='~/.ros/recordings', fps=10.0))`, add `'camera'` to `scenario.requires_senses`, and call `rec = ctx.services.recorder; rec.start(clip='...'); ...; rec.stop()`.",
-            "6. `ctx.senses.battery.percent` is on a 0–100 scale (e.g. `20.0` means 20%, NOT `0.20`).",
-        ],
-        "function_signatures": {
-            "boot_drone": "boot_drone() -> ContextManager[Drone]",
-            "takeoff": "takeoff(*, alt_m: float = 3.0, name: Optional[str] = None) -> SkillStep",
-            "fly_to": "fly_to(x=None, y=None, z=None, *, north: Optional[float] = None, east: Optional[float] = None, alt_m: Optional[float] = None, direct: bool = False, mode: Optional[str] = None, replan_mode: Optional[str] = None, target_speed: Optional[float] = None, name: Optional[str] = None) -> SkillStep",
-            "orbit": "orbit(center=None, *, center_north: Optional[float] = None, center_east: Optional[float] = None, alt_m: Optional[float] = None, radius_m: float = 5.0, period_s: float = 20.0, duration_s: float = 60.0) -> SkillStep",
-            "helix": "helix(center=None, *, center_north: Optional[float] = None, center_east: Optional[float] = None, alt_m: Optional[float] = None, alt_m_end: Optional[float] = None, radius_m: float = 5.0, duration_s: float = 60.0) -> SkillStep",
-            "yaw_to": "yaw_to(face=None, *, north: Optional[float] = None, east: Optional[float] = None, name: str = 'yaw_to') -> SkillStep",
-            "capture": "capture(*, output_dir: str = '~/.ros/captures', filename: Optional[str] = None) -> SkillStep",
-            "brake": "brake(*, name: str = 'brake') -> SkillStep",
-            "land": "land(*, name: str = 'land') -> SkillStep",
-            "CameraSense": "CameraSense()",
-            "VideoRecorder": "VideoRecorder(output_dir: str = '~/.ros/recordings', fps: float = 10.0)",
-            "Snapshot": "Snapshot(output_dir: str = '~/.ros/captures')",
-            "Sprayer": "Sprayer()",
-            "Detector": "Detector(model_name: str = 'yolov8n')",
-        },
-        "example_script": (
-            'from __future__ import annotations\n'
-            'from typing import Any, Iterator\n'
-            'from local_planner import (\n'
-            '    CameraSense,\n'
-            '    VideoRecorder,\n'
-            '    boot_drone,\n'
-            '    brake,\n'
-            '    capture,\n'
-            '    fly_to,\n'
-            '    land,\n'
-            '    takeoff,\n'
-            ')\n\n'
-            'ALTITUDE_M = 2.5\n\n'
-            'def scenario(ctx: Any) -> Iterator[Any]:\n'
-            '    rec = ctx.services.recorder\n'
-            '    yield takeoff(alt_m=ALTITUDE_M)\n'
-            '    rec.start(clip="mission_recording")\n'
-            '    yield fly_to(north=5.0, east=0.0, alt_m=ALTITUDE_M, mode="transit")\n'
-            '    yield brake()\n'
-            '    yield capture(filename="wp_1.jpg")\n'
-            '    rec.stop()\n'
-            '    yield brake()\n'
-            '    yield land()\n\n'
-            'scenario.requires_senses = ["pose", "obstacle", "status", "camera"]\n\n'
-            'def main() -> None:\n'
-            '    with boot_drone() as drone:\n'
-            '        drone.add_sense(CameraSense())\n'
-            '        drone.add_service(VideoRecorder(output_dir="~/.ros/recordings", fps=10.0))\n'
-            '        drone.fly(scenario)\n'
-            '        drone.run()\n\n'
-            'if __name__ == "__main__":\n'
-            '    main()\n'
-        ),
-    }
+    return get_uav_python_sdk_reference_data()
 
 
-def validate_uav_python_code(python_code: str) -> Dict[str, Any]:
-    """Static AST analyzer for SkyTrack UAV Python scripts."""
-    errors: List[str] = []
-    warnings: List[str] = []
-
-    try:
-        tree = ast.parse(python_code)
-    except SyntaxError as exc:
-        return {
-            "valid": False,
-            "errors": [f"SyntaxError at line {exc.lineno}: {exc.msg}"],
-            "warnings": [],
-        }
-
-    has_boot_drone = False
-    has_yield = False
-
-    for node in ast.walk(tree):
-        if isinstance(node, (ast.Yield, ast.YieldFrom)):
-            has_yield = True
-        if isinstance(node, ast.Call):
-            func_name = ""
-            if isinstance(node.func, ast.Name):
-                func_name = node.func.id
-            elif isinstance(node.func, ast.Attribute):
-                func_name = node.func.attr
-
-            if func_name == "boot_drone":
-                has_boot_drone = True
-
-            if func_name == "takeoff":
-                kw_names = {kw.arg for kw in node.keywords if kw.arg}
-                if "altitude" in kw_names or "z" in kw_names:
-                    errors.append(
-                        "takeoff() uses `alt_m=...` keyword argument, not `altitude` or `z`."
-                    )
-
-            if func_name == "fly_to":
-                kw_names = {kw.arg for kw in node.keywords if kw.arg}
-                if "altitude" in kw_names:
-                    errors.append("fly_to() uses `alt_m=...` keyword argument, not `altitude`.")
-
-    if not has_boot_drone:
-        warnings.append("Script does not call `boot_drone()`; ensure it initializes the ROS 2 node.")
-    if not has_yield:
-        warnings.append("No `yield` statement found; `scenario(ctx)` should yield SkillSteps.")
-
-    return {
-        "valid": len(errors) == 0,
-        "errors": errors,
-        "warnings": warnings,
-    }
+@mcp.tool()
+def get_autonomy_level_template(level: int = 1) -> Dict[str, Any]:
+    """Return runnable, AST-verified Python mission templates for SkyTrack Autonomy Levels 1 to 6:
+    - level=1: Basics (takeoff, waypoints, brake, land)
+    - level=2: Flight Patterns (orbit, helix, yaw_to, lawnmower coverage)
+    - level=3: Mission Logic (sub-missions via `yield from` + battery.percent 0-100 logic)
+    - level=4: Camera, Sprayer & AI Detector (`CameraSense`, `VideoRecorder`, `Snapshot`)
+    - level=5: Custom Extensions (`GeofenceSense`, `HoverForSeconds`, `TelemetryLogger`)
+    - level=6: Full-Stack Integrated Site Survey (`site_survey_mission`)
+    """
+    return get_autonomy_level_template_data(level=level)
 
 
 @mcp.tool()

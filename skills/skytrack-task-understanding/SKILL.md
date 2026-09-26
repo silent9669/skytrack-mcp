@@ -41,3 +41,15 @@ Produces a structured specification:
 - If camera inspection/snapshots are required, vehicle must have camera tag (`x500_mono_cam`, `x500_gimbal`, `x500_tennis_balls`).
 - If LiDAR point clouds are required, vehicle must be `x500_livox_mid_360`.
 - All altitudes must default to safe clearance (typically 2.0m - 5.0m depending on obstacle heights).
+
+## SkyTrack Autonomy Level Mapping Table (`GetSkyTrack/skytrack-autonomy-example`)
+Choose the right execution paradigm and autonomy level for the user's request:
+| Level | Complexity & Use Case | Key SDK Primitives (`get_autonomy_level_template(level)`) |
+|---|---|---|
+| **Level 1 (Basics)** | Point-to-point or simple polygon waypoints (`hello_mission`, `waypoints_mission`). | `takeoff`, `fly_to(north, east, alt_m)`, `brake`, `land` |
+| **Level 2 (Patterns)** | Circular inspection, spiral climb, heading lock, or lawnmower area scan (`orbit`, `helix`, `lawnmower`). | `orbit`, `helix`, `yaw_to`, `fly_to(mode="coverage", replan_mode="fast", yaw_mode="course")` |
+| **Level 3 (Logic)** | Multi-sector patrols with conditional branching or battery return-to-home (`sub_missions`, `battery_aware`). | `yield from sub_mission(...)`, `ctx.senses.battery.percent` (`0–100` scale) |
+| **Level 4 (Payload/AI)** | Video recording, still photography, crop spraying, or ONNX object detection (`record_video`, `sprayer`, `detect_objects`). | `CameraSense`, `VideoRecorder`, `Snapshot`, `Sprayer`, `Detector` |
+| **Level 5 (Extensions)** | Custom geofence monitors, non-blocking timed hovers, CSV telemetry loggers, or custom `ControlMode` + `Command`. | `Sense` (`attach`+`update`), `Skill` (`ScheduleGroup.CONTROL`), `Service` (`ScheduleGroup.MEDIA`) |
+| **Level 6 (Full-Stack)** | Complete industrial/agricultural site survey combining grid coverage, video, custom sense/skill/service, and battery guard. | `site_survey_mission` (all of Levels 1–5 combined) |
+

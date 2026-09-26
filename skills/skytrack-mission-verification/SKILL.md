@@ -25,8 +25,9 @@ Enforces the core engineering principle: **Never assume success because the simu
 
 ## Standard Verification Checklist Items
 - `landed_safely`: Drone completed flight and returned to `ON_GROUND`.
-- `min_waypoints`: All planned inspection waypoints were visited.
-- `payload_drops`: Number of drop events matches requirement.
-- `captures`: Required snapshot images were saved to disk.
-- `battery_margin`: Flight completed with battery remaining above critical threshold (> 15%).
-- `collision_free`: Zero obstacle intersections recorded during planning and flight.
+- `min_waypoints`: All planned inspection waypoints were visited (`WAYPOINT_REACHED` events).
+- `payload_drops`: Number of drop events (`BALL_DROP` / `PAYLOAD_TRIGGER`) matches requirement and horizontal accuracy `<= tolerance_m`.
+- `video_recording_wrapped`: `RECORDING_STARTED` (`"Recording started"`) occurs strictly before `BALL_DROP` and `RECORDING_STOPPED` (`"Recording stopped"`) occurs strictly after `BALL_DROP`.
+- `captures`: Required snapshot images were saved to disk (`~/.ros/captures` / `media/captures/`).
+- `battery_margin`: Flight completed with `ctx.senses.battery.percent` remaining above critical threshold (`> 15.0%` on `0–100` scale).
+- `collision_free`: Zero obstacle intersections recorded during planning and flight (`SKILL_STARTED` / `SKILL_COMPLETED` pairs balanced, `MISSION_END` with `final_status: "Succeeded"`).
