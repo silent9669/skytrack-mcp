@@ -32,9 +32,18 @@ from skytrack_mcp.route.geometry_utils import (
 )
 
 
-def test_reg_001_basic_mission_open_read_save() -> None:
+def test_reg_001_basic_mission_open_read_save(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """REG-001: Basic mission open/read/save."""
     missions = list_all_missions()
+    if not missions:
+        mis_dir = tmp_path / "prj-P1" / "mis-M1"
+        mis_dir.mkdir(parents=True)
+        (mis_dir / "mission.json").write_text('{"world": "default", "vehicle": "x500"}', encoding="utf-8")
+        (mis_dir / "plan.json").write_text('{"spawnLocation": [0,0,0], "sequences": []}', encoding="utf-8")
+        from skytrack_mcp.clients import storage_sync
+        monkeypatch.setattr(storage_sync, "CLIENT_DATA_DIR", tmp_path)
+        missions = list_all_missions(tmp_path)
+
     assert len(missions) > 0
     m = missions[0]
     details = read_mission_details(m["mission_id"])
