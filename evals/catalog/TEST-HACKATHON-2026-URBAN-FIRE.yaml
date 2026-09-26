@@ -1,0 +1,47 @@
+test_id: "TEST-HACKATHON-2026-URBAN-FIRE"
+title: "SkyTrack Hackathon 2026 — Urban Fire Rescue (Ứng cứu cháy khu đô thị)"
+category: "CAT-BENCHMARK"
+objective: "Evaluate autonomous mission generation, execution, and verification against the official Hackathon 2026 Preliminary Round rubric (100 points)."
+
+environment:
+  world: "urban"
+  vehicle: "x500_tennis_balls"
+  spawn_location: [203.684, -153.697, 0.452]
+  fire_point: [-83.74, -28.18]
+  flight_area_polygon:
+    - [-112.55, 71.20]
+    - [237.81, 43.63]
+    - [267.37, -185.41]
+    - [205.38, -229.27]
+    - [-96.18, -232.80]
+
+assignment: >
+  Có báo cháy tại một công trường trong khu đô thị (World: Urban).
+  Đội điều một drone bay tuần tra khu vực, ghi hình lúc xử lý sự cố,
+  thả bóng chữa cháy xuống đúng điểm cháy (X: -83.74, Y: -28.18),
+  rồi đưa drone về an toàn bằng RTL.
+
+constraints:
+  takeoff_altitude_m: 35.0
+  min_waypoints: 5
+  min_route_length_m: 400.0
+  min_span_x_m: 120.0
+  min_span_y_m: 120.0
+  fire_point_tolerance_m: 3.0
+  recording_rules:
+    start_before_drop: true
+    stop_after_drop: true
+
+scoring_rubric:
+  mission_success: 22
+  valid_route: 15
+  true_patrol_metrics: 15
+  video_recording_wrapped: 18
+  ball_drop_accuracy: 18
+  rtl_completion: 12
+  total_max_score: 100
+
+reference_solution:
+  report_fixture: "evals/fixtures/hackathon-2026/sample-answer-report.json"
+  expected_waypoints_count: 7
+  expected_status: "Succeeded"

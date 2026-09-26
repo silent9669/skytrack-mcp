@@ -158,6 +158,44 @@ class IndependentEvaluator:
         return result_payload
 
 
+    def evaluate_hackathon_benchmark(self, spec: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute TEST-HACKATHON-2026-URBAN-FIRE: Official Hackathon 2026 100-point rubric."""
+        from evals.expected.hackathon_evaluator import score_hackathon_mission_report
+
+        test_id = spec["test_id"]
+        run_id = f"{test_id}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        run_folder = self.runs_dir / run_id
+        run_folder.mkdir(parents=True, exist_ok=True)
+
+        fixture_rel = spec["reference_solution"]["report_fixture"]
+        fixture_path = EVALS_DIR.parent / fixture_rel
+        score_res = score_hackathon_mission_report(fixture_path)
+
+        passed = score_res["passed_threshold"]
+        result_payload = {
+            "test_id": test_id,
+            "run_id": run_id,
+            "status": "PASS" if passed else "FAIL",
+            "total_score": score_res["total_score"],
+            "max_score": score_res["max_score"],
+            "rubric_scores": score_res["rubric_scores"],
+            "details": score_res["details"],
+            "requirements": [
+                {
+                    "id": "R_RUBRIC_SCORE",
+                    "status": "PASS" if passed else "FAIL",
+                    "expected": ">= 85.0 / 100.0",
+                    "observed": f"{score_res['total_score']} / {score_res['max_score']}",
+                }
+            ],
+            "bugs": [],
+        }
+
+        (run_folder / "test-spec.yaml").write_text(yaml.dump(spec), encoding="utf-8")
+        (run_folder / "score_result.json").write_text(json.dumps(result_payload, indent=2), encoding="utf-8")
+        return result_payload
+
+
 def run_reviewer_suite() -> Dict[str, Any]:
     evaluator = IndependentEvaluator()
     results = {}
@@ -169,6 +207,10 @@ def run_reviewer_suite() -> Dict[str, Any]:
     print("Executing TEST-FAIL-001 (Negative Failure Refusal)...")
     spec_fail = evaluator.load_spec("TEST-FAIL-001.yaml")
     results["TEST-FAIL-001"] = evaluator.evaluate_test_failure_refusal(spec_fail)
+
+    print("Executing TEST-HACKATHON-2026-URBAN-FIRE (100-Point Rubric Evaluation)...")
+    spec_hack = evaluator.load_spec("TEST-HACKATHON-2026-URBAN-FIRE.yaml")
+    results["TEST-HACKATHON-2026-URBAN-FIRE"] = evaluator.evaluate_hackathon_benchmark(spec_hack)
 
     summary_file = EVALS_DIR / "reports" / "reviewer_eval_summary.json"
     summary_file.parent.mkdir(parents=True, exist_ok=True)
