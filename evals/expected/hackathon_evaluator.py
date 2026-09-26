@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 import math
 from pathlib import Path
-from typing import Any, Dict, List, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 
 FLIGHT_AREA_POLYGON: List[Tuple[float, float]] = [
@@ -45,13 +45,127 @@ def point_in_polygon(point: Tuple[float, float], polygon: Sequence[Tuple[float, 
     return inside
 
 
-def score_hackathon_mission_report(report_json_path: Path) -> Dict[str, Any]:
+def _verify_video_wraps_ball_drop(
+    events: Sequence[Dict[str, Any]],
+    actions_defined: Optional[Sequence[Dict[str, Any]]] = None,
+    plan_json_path: Optional[Path] = None,
+) -> Tuple[bool, str]:
+    """Verify that video recording starts strictly before ball drop and stops strictly after ball drop."""
+    # 1. Check explicit plan.json if provided or if actions_defined is embedded
+    actions_list: List[Dict[str, Any]] = []
+    if plan_json_path and Path(plan_json_path).exists():
+        try:
+            plan_data = json.loads(Path(plan_json_path).read_text(encoding="utf-8"))
+            for seq in plan_data.get("sequences", []):
+                actions_list.extend(seq.get("actions", []))
+        except Exception:
+            pass
+    elif actions_defined:
+        actions_list = list(actions_defined)
+
+    # 2. Check execution_events timeline first
+    start_ev_idx: Optional[int] = None
+    drop_ev_idx: Optional[int] = None
+    stop_ev_idx: Optional[int] = None
+
+    for idx, ev in enumerate(events):
+        ev_type = str(ev.get("event", ""))
+        ev_data = ev.get("data", {}) or {}
+        status_str = str(ev_data.get("status", "")).lower()
+        op_str = str(ev_data.get("operation", "")).lower()
+
+        if start_ev_idx is None and (
+            ev_type == "RECORDING_STARTED"
+            or "recording started" in status_str
+            or (ev_type == "CAMERA_TRIGGER" and op_str in ("recording_on", "start-recording-video"))
+        ):
+            start_ev_idx = idx
+
+        if drop_ev_idx is None and ev_type in ("BALL_DROP", "PAYLOAD_TRIGGER"):
+            if ev_type == "BALL_DROP" or op_str in ("drop-ball", "drop_payload", ""):
+                drop_ev_idx = idx
+
+        if (
+            ev_type == "RECORDING_STOPPED"
+            or "recording stopped" in status_str
+            or (ev_type == "CAMERA_TRIGGER" and op_str in ("recording_off", "stop-recording-video"))
+        ):
+            stop_ev_idx = idx
+
+    if start_ev_idx is not None or stop_ev_idx is not None:
+        if (
+            start_ev_idx is not None
+            and drop_ev_idx is not None
+            and stop_ev_idx is not None
+            and start_ev_idx < drop_ev_idx < stop_ev_idx
+        ):
+            return (
+                True,
+                f"Verified in execution_events: start_event=#{start_ev_idx} < drop_event=#{drop_ev_idx} < stop_event=#{stop_ev_idx}",
+            )
+        return (
+            False,
+            f"Invalid or incomplete recording event order: start={start_ev_idx}, drop={drop_ev_idx}, stop={stop_ev_idx}",
+        )
+
+    # 3. Fallback to checking plan.json / actions_defined action ordering if events had no camera markers
+    if actions_list:
+        act_start_idx: Optional[int] = None
+        act_drop_idx: Optional[int] = None
+        act_stop_idx: Optional[int] = None
+
+        for idx, act in enumerate(actions_list):
+            t = str(act.get("type", "")).lower()
+            after = str(act.get("after_action", "")).lower()
+            if act_start_idx is None and (
+                t in ("start-recording-video", "recording_on")
+                or after in ("start-recording-video", "recording_on")
+            ):
+                act_start_idx = idx
+            if act_drop_idx is None and (
+                t in ("drop-ball", "drop_payload") or after in ("drop-ball", "drop_payload")
+            ):
+                act_drop_idx = idx
+            if t in ("stop-recording-video", "recording_off") or after in (
+                "stop-recording-video",
+                "recording_off",
+            ):
+                act_stop_idx = idx
+
+        if (
+            act_start_idx is not None
+            and act_drop_idx is not None
+            and act_stop_idx is not None
+            and act_start_idx < act_drop_idx < act_stop_idx
+        ):
+            return (
+                True,
+                f"Verified in plan actions: start_action=#{act_start_idx} < drop_action=#{act_drop_idx} < stop_action=#{act_stop_idx}",
+            )
+        return (
+            False,
+            f"Invalid or missing recording action order in plan: start={act_start_idx}, drop={act_drop_idx}, stop={act_stop_idx}",
+        )
+
+    return False, "Missing video recording start/stop wrapping the ball drop"
+
+
+def score_hackathon_mission_report(
+    report_json_path: Path,
+    plan_json_path: Optional[Path] = None,
+) -> Dict[str, Any]:
     """Score a mission report JSON against the Hackathon 2026 rubric."""
-    data = json.loads(Path(report_json_path).read_text(encoding="utf-8"))
+    report_path = Path(report_json_path)
+    data = json.loads(report_path.read_text(encoding="utf-8"))
     meta = data.get("execution_metadata", {})
     report = data.get("execution_report", [{}])[0]
     summary = report.get("status_summary", {})
     events = report.get("execution_events", [])
+
+    if plan_json_path is None:
+        sibling_plan = report_path.parent / "plan.json"
+        if sibling_plan.exists():
+            plan_json_path = sibling_plan
 
     scores: Dict[str, float] = {}
     details: Dict[str, Any] = {}
@@ -100,11 +214,17 @@ def score_hackathon_mission_report(report_json_path: Path) -> Dict[str, Any]:
         "span_valid": span_valid,
     }
 
-    # Criterion 4: Video recording wraps the drop (18 pts)
-    # If the simulation mission metadata specifies video or execution events record it
-    # In official SkyTrack, having camera on board and start/stop recording defined in mission.json
-    scores["video_recording_wrapped"] = 18.0
-    details["video_recording"] = "Verified in mission plan & execution structure"
+    # Criterion 4: Video recording wraps the drop (start < drop < stop) (18 pts)
+    c4_pass, c4_reason = _verify_video_wraps_ball_drop(
+        events=events,
+        actions_defined=summary.get("actions_defined"),
+        plan_json_path=plan_json_path,
+    )
+    scores["video_recording_wrapped"] = 18.0 if c4_pass else 0.0
+    details["video_recording"] = {
+        "passed": c4_pass,
+        "evidence": c4_reason,
+    }
 
     # Criterion 5: Drop firefighting ball on fire point (<= 3 m horizontal) (18 pts)
     ball_drops = [e for e in events if e.get("event") == "BALL_DROP"]
@@ -122,7 +242,6 @@ def score_hackathon_mission_report(report_json_path: Path) -> Dict[str, Any]:
         if dist_from_target <= 3.0:
             drop_accuracy_pass = True
     else:
-        # Check waypoint near fire point with drop-ball action
         for w in waypoints:
             dist = math.sqrt((w["x"] - FIRE_POINT_WORLD[0]) ** 2 + (w["y"] - FIRE_POINT_WORLD[1]) ** 2)
             if dist < min_dist_m:

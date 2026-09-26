@@ -10,6 +10,7 @@ from skytrack_mcp.simulation.runner import (
     execute_canonical_mission,
     launch_python_script_in_container,
     send_direct_flight_command,
+    simulate_mission_to_execution_report,
 )
 
 __all__ = [
@@ -19,5 +20,6 @@ __all__ = [
     "execute_canonical_mission",
     "launch_python_script_in_container",
     "send_direct_flight_command",
+    "simulate_mission_to_execution_report",
     "observe_simulation_execution",
 ]

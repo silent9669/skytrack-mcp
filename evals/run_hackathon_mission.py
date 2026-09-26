@@ -1,5 +1,6 @@
 """Autonomous Mission Runner & Evaluator for SkyTrack Hackathon 2026 Urban Fire Rescue.
-Executes the closed-loop workflow and scores the mission report against the official 100-point rubric.
+Executes the closed-loop workflow, dynamically simulates the authored mission into an execution report,
+scores it against the official 100-point rubric, and compares it against the reference sample answer.
 """
 
 from __future__ import annotations
@@ -16,15 +17,8 @@ from evals.expected.hackathon_evaluator import (
     point_in_polygon,
     score_hackathon_mission_report,
 )
-from skytrack_mcp.clients.storage_sync import (
-    list_all_missions,
-    read_mission_details,
-    write_python_script,
-    write_visual_route,
-)
 from skytrack_mcp.config import CLIENT_DATA_DIR
-from skytrack_mcp.mission.validator import validate_canonical_mission
-from skytrack_mcp.report.parser import harvest_mission_report_data, render_markdown_flight_report
+from skytrack_mcp.report.parser import harvest_mission_report_data
 from skytrack_mcp.server import (
     check_route_collisions,
     convert_route_to_python_script,
@@ -34,6 +28,7 @@ from skytrack_mcp.server import (
     tool_skytrack_get_context,
     tool_skytrack_validate_mission,
 )
+from skytrack_mcp.simulation.runner import simulate_mission_to_execution_report
 
 FIXTURE_REPORT = Path(__file__).resolve().parent / "fixtures" / "hackathon-2026" / "sample-answer-report.json"
 REPORT_OUTPUT = Path(__file__).resolve().parent / "reports" / "hackathon_2026_eval_report.json"
@@ -47,10 +42,9 @@ async def run_hackathon_urban_fire_mission() -> Dict[str, Any]:
     # 1. Target Context & Setup
     init_ctx = await tool_skytrack_get_context()
     project_id = init_ctx.get("active_project_id") or "01M11QPK1C3Y5GFNBDADS8H7MC"
-    mission_id = "01M1H032A86R5CVX521T9KGT7Z"  # Canonical Hackathon Mission ID
+    mission_id = "01M1H032A86R5CVX521T9KGT7Z"
 
     spawn_pose = [203.684, -153.697, 0.452]
-    fire_target = [-83.74, -28.18]
 
     # Ensure mission directory exists in ClientData
     mis_dir = CLIENT_DATA_DIR / f"prj-{project_id}" / f"mis-{mission_id}"
@@ -120,6 +114,18 @@ async def run_hackathon_urban_fire_mission() -> Dict[str, Any]:
         target_speed=2.5,
         save_to_mission=True,
     )
+    # Restore codeMode=False after generating script.py so visual route stays active
+    draw_route_on_map(
+        waypoints=waypoints,
+        mission_id=mission_id,
+        spawn_location=spawn_pose,
+        takeoff_altitude=35.0,
+        target_speed=2.5,
+        safety_option="avoid",
+        end_action="rtl",
+        world="urban",
+        vehicle="x500_tennis_balls",
+    )
     print(f"  ✓ Compiled & AST-validated script.py ({len(py_res['python_code'])} bytes)")
 
     # 5. Static Pre-flight Validation
@@ -127,43 +133,62 @@ async def run_hackathon_urban_fire_mission() -> Dict[str, Any]:
     assert val_res["valid"] is True
     print("  ✓ Static Pre-flight Validation: VALID (0 errors).")
 
-    # 6. Dispatch Execution to UAV
-    print("\n[STEP 4: DISPATCH SIMULATION MISSION]")
+    # 6. Dispatch Execution to UAV & Dynamically Simulate Execution Report from Authored Mission
+    print("\n[STEP 4: DISPATCH & SIMULATE MISSION FROM AUTHORED PLAN.JSON]")
     exec_res = await execute_route_mission(
         mission_id=mission_id,
         also_save_to_ui=False,
     )
     print(f"  ✓ GCS Control API Status: {exec_res['status_code']} | Response: {exec_res.get('response', {}).get('message')}")
 
-    # 7. Generate Official Execution Report File
-    print("\n[STEP 5: HARVEST & EVALUATE AUTHENTIC MISSION REPORT]")
-    dest_report = mis_dir / "skytrack-mission-report.json"
-    if FIXTURE_REPORT.exists():
-        dest_report.write_text(FIXTURE_REPORT.read_text(encoding="utf-8"), encoding="utf-8")
+    sim_report_res = simulate_mission_to_execution_report(
+        mission_id=mission_id,
+        project_id=project_id,
+        save_to_disk=True,
+    )
+    dest_report = Path(sim_report_res["report_path"])
+    print(f"  ✓ Dynamically simulated execution report written to: {dest_report}")
 
-    # Harvest and parse report data using MCP tool
+    # 7. Harvest & Evaluate Dynamically Simulated Report vs. Reference Answer
+    print("\n[STEP 5: HARVEST & COMPARE SIMULATED REPORT AGAINST REFERENCE FIXTURE]")
     harvested = harvest_mission_report_data(mission_id, project_id)
     assert harvested["execution_status"] in ("Succeeded", "COMPLETED")
-    assert harvested["total_planned_waypoints"] >= 5
+    assert harvested["total_planned_waypoints"] == 7
 
-    # 8. Score against Official 100-Point Hackathon Rubric
     score_result = score_hackathon_mission_report(dest_report)
+    ref_score_result = score_hackathon_mission_report(FIXTURE_REPORT)
+
     print(f"\n==================================================================")
-    print(f" FINAL HACKATHON SCORE: {score_result['total_score']} / {score_result['max_score']} POINTS")
+    print(f" SIMULATED MISSION SCORE : {score_result['total_score']} / {score_result['max_score']} POINTS")
+    print(f" REFERENCE FIXTURE SCORE : {ref_score_result['total_score']} / {ref_score_result['max_score']} POINTS")
     print(f"==================================================================")
     for criterion, pts in score_result["rubric_scores"].items():
-        print(f"  - {criterion:<25}: {pts:.1f} pts")
+        ref_pts = ref_score_result["rubric_scores"].get(criterion, 0.0)
+        print(f"  - {criterion:<25}: {pts:.1f} pts (Reference: {ref_pts:.1f} pts)")
 
-    # Write evaluation report
+    comparison_output = {
+        "simulated_score": score_result,
+        "reference_score": ref_score_result,
+        "trajectory_equivalence": {
+            "simulated_waypoints": score_result["details"]["route_checks"]["waypoint_count"],
+            "reference_waypoints": ref_score_result["details"]["route_checks"]["waypoint_count"],
+            "simulated_ball_drop_error_m": score_result["details"]["ball_drop"]["horizontal_error_m"],
+            "reference_ball_drop_error_m": ref_score_result["details"]["ball_drop"]["horizontal_error_m"],
+            "scores_match_100_percent": score_result["total_score"] == ref_score_result["total_score"] == 100.0,
+        },
+    }
+
     REPORT_OUTPUT.parent.mkdir(parents=True, exist_ok=True)
-    REPORT_OUTPUT.write_text(json.dumps(score_result, indent=2), encoding="utf-8")
-    print(f"\nDetailed evaluation report saved to {REPORT_OUTPUT}")
+    REPORT_OUTPUT.write_text(json.dumps(comparison_output, indent=2), encoding="utf-8")
+    print(f"\nDetailed evaluation & equivalence report saved to {REPORT_OUTPUT}")
 
     assert score_result["total_score"] == 100.0, f"Expected 100.0, got {score_result['total_score']}"
+    assert score_result["rubric_scores"] == ref_score_result["rubric_scores"]
 
     return {
         "mission_id": mission_id,
         "score_result": score_result,
+        "reference_score_result": ref_score_result,
         "harvested_report": harvested,
     }
 
