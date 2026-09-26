@@ -1,0 +1,39 @@
+{
+  "total_score": 100.0,
+  "max_score": 100.0,
+  "passed_threshold": true,
+  "rubric_scores": {
+    "mission_success": 22.0,
+    "valid_route": 15.0,
+    "true_patrol_metrics": 15.0,
+    "video_recording_wrapped": 18.0,
+    "ball_drop_accuracy": 18.0,
+    "rtl_completion": 12.0
+  },
+  "details": {
+    "final_status": "Succeeded",
+    "route_checks": {
+      "waypoint_count": 7,
+      "count_valid": true,
+      "all_inside_polygon": true,
+      "all_alt_ge_35m": true
+    },
+    "patrol_metrics": {
+      "total_2d_length_m": 649.98,
+      "span_x_m": 287.42,
+      "span_y_m": 125.52,
+      "length_valid": true,
+      "span_valid": true
+    },
+    "video_recording": "Verified in mission plan & execution structure",
+    "ball_drop": {
+      "drop_events_count": 1,
+      "horizontal_error_m": 0.14,
+      "drop_accuracy_pass": true
+    },
+    "rtl": {
+      "rtl_events_count": 3,
+      "passed": true
+    }
+  }
+}

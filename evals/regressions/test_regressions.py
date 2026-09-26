@@ -137,3 +137,25 @@ def test_reg_011_invalid_mission_detection() -> None:
     val = validate_canonical_mission(bad_mission)
     assert val.valid is False
     assert any(i.code == "INVALID_TAKEOFF_ALTITUDE" for i in val.issues)
+
+
+def test_reg_012_hackathon_2026_urban_fire() -> None:
+    """REG-012: Hackathon 2026 Urban Fire Rescue 100-point benchmark."""
+    from evals.expected.hackathon_evaluator import (
+        FIRE_POINT_WORLD,
+        FLIGHT_AREA_POLYGON,
+        point_in_polygon,
+        score_hackathon_mission_report,
+    )
+    fixture_path = Path(__file__).resolve().parent.parent / "fixtures" / "hackathon-2026" / "sample-answer-report.json"
+    assert fixture_path.exists()
+
+    result = score_hackathon_mission_report(fixture_path)
+    assert result["total_score"] == 100.0
+    assert result["rubric_scores"]["mission_success"] == 22.0
+    assert result["rubric_scores"]["valid_route"] == 15.0
+    assert result["rubric_scores"]["true_patrol_metrics"] == 15.0
+    assert result["rubric_scores"]["video_recording_wrapped"] == 18.0
+    assert result["rubric_scores"]["ball_drop_accuracy"] == 18.0
+    assert result["rubric_scores"]["rtl_completion"] == 12.0
+
