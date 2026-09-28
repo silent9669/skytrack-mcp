@@ -1,40 +1,41 @@
 ---
 name: skytrack-mission-authoring
-description: Authors, modifies, and validates SkyTrack missions in both visual route format (plan.json) and ROS 2 Python scripts (script.py) matching GetSkyTrack/skytrack-autonomy-example.
+description: Author or repair SkyTrack missions in Plan or Code Mode with exact-target authorization, safe mode switching, transactional persistence, read-back, and static validation.
 ---
 
-# SkyTrack Mission Authoring Skill
+# SkyTrack Mission Authoring
 
-## Purpose
-Constructs and modifies SkyTrack mission representations across both supported authoring paradigms:
-1. **Visual Route Mode (`plan.json` + `mission.json`):** Renders interactive 3D waypoints and action markers on the SkyTrack Electron Map UI.
-2. **Code Mode (`script.py`):** Compiles and validates Python scripts using the `local_planner` SDK (`boot_drone`, `takeoff`, `fly_to`, `orbit`, `helix`, `yaw_to`, `capture`, `brake`, `land`, `CameraSense`, `VideoRecorder`) for autonomous container execution.
+## Scope
 
-## Trigger Conditions
-- Triggered after route planning to commit waypoints to disk or container.
-- Triggered when repairing mission parameters or switching between visual and code modes.
+This playbook is for explicit user requests to create or edit a mission. Review, explanation, and inspection requests are read-only. The user runs all simulations in SkyTrack Desktop (Local Docker or Cloud); the agent NEVER dispatches, executes, or controls flights.
 
-## Relevant MCP Tools
-- `tool_skytrack_set_mission`, `draw_route_on_map`, `tool_skytrack_patch_mission`
-- `tool_skytrack_validate_mission`
-- `write_and_save_uav_script`, `convert_route_to_python_script`, `get_uav_python_sdk_reference`
+## Target and authorization gate
 
-## Authoring Rules (`GetSkyTrack/skytrack-autonomy-example` Checklist)
-1. **Visual Route (`plan.json`):**
-   - Each waypoint is an action: `{"type": "navigate", "data": [x, y, z]}` in local ENU meters.
-   - Attached payload actions follow immediately: `{"type": "drop-ball"}`, `{"type": "start-recording-video"}`, `{"type": "stop-recording-video"}`, or `{"type": "take-snapshot"}`.
-   - `codeMode` in `mission.json` must be `false` to render on the Map view.
-2. **Python Autonomy Script (`script.py`) Checklist:**
-   - **File Header:** Always start with `from __future__ import annotations` and define `UPPER_CASE` mission constants (`ALTITUDE_M`, `SPEED_MPS`, `OUTPUT_DIR`).
-   - **Generator Function:** `def scenario(ctx: Any) -> Iterator[Any]: ... yield takeoff(alt_m=...) ...`
-   - **Flight Modes:** Use `fly_to(north=..., east=..., alt_m=..., mode='transit' | 'coverage' | 'direct', replan_mode='fast' | 'slow')`.
-   - **Brake Before Capture & Landing:** Always `yield brake()` immediately before `yield capture(...)` and before `yield land()`.
-   - **Video Recording Service (`CameraSense` + `VideoRecorder`):**
-     * Include `"camera"` in `scenario.requires_senses = ["pose", "obstacle", "status", "camera"]`.
-     * Inside `scenario(ctx)`: `rec = ctx.services.recorder`, call `rec.start(clip="mission_recording")` before the target event and `rec.stop()` after.
-     * Inside `with boot_drone() as drone:`: call `drone.add_sense(CameraSense())` and `drone.add_service(VideoRecorder(output_dir="~/.ros/recordings", fps=10.0))`.
-   - **Battery Units Rule:** `ctx.senses.battery.percent` is on a `0–100` scale (`20.0` = 20%, NOT `0.20`).
-   - Always validate with the AST static analyzer before saving.
+1. Call `tool_skytrack_resolve_target` with the project and mission names or IDs. Continue only with the exact, unambiguous `(project_id, mission_id)` result. Do not infer the active or most-recent mission. If the mission is missing, ask before creating it; clarify ambiguous or unavailable targets.
+2. Read the target's existing Plan and Code representations and mode before any edit.
+3. Call `tool_skytrack_check_permission` with the exact resolved project and mission IDs immediately before authoring. Edit only if `edit_authorization` is `VERIFIED` and `read_only_enforced` is false. `DENIED` or `UNVERIFIED` means stop at read-only diagnosis or proposal. Never modify a view-only project or immutable, locked, judge, or submission snapshot, and do not work around a lock by cloning or writing directly to files.
 
-## Post-Authoring Read-Back Gate
-- **MANDATORY:** Always read the mission back (`tool_skytrack_get_mission`) after authoring to verify that all actions and waypoints match the intended specification before flight.
+## Choose the representation
+
+- **Plan Mode** is the default for waypoint routes, coverage, and discrete payload actions such as snapshots or video start/stop.
+- **Code Mode** is preferred for dynamic perception, AI/model inference, conditional mission logic, or features that need the SkyTrack autonomy SDK. Use the verified SDK reference/template for the required level.
+- Inspect both representations first. A mode change must preserve the inactive representation byte-for-byte/semantically intact; never clear or regenerate the inactive Plan or Code representation as a side effect. If a tool cannot safely preserve it, stop and ask rather than switching.
+
+## Transactional author-save-readback loop
+
+1. Make only the requested, targeted change on the exact authorized mission. Keep the existing coordinate frame, world, vehicle, and unrelated actions unless the request explicitly changes them.
+2. Use the transactional/snapshot-backed mission save path for the selected representation. For canonical Plan/metadata patches, use the atomic, snapshot-backed mission patch tool when it supports the requested fields. For Code Mode, use `write_and_save_uav_script` to AST-validate and save, with the explicit target mission ID and safe mode switch option. If the available path cannot provide a recoverable transaction or preserve the inactive representation, do not use a direct file write as a substitute.
+3. Check the save result and returned target IDs. Then read the exact mission back with `tool_skytrack_get_mission` (and raw mission state if needed). Verify the intended Plan/Code content, active mode, unchanged inactive representation, and that the returned project/mission pair matches the target.
+4. Run `tool_skytrack_validate_mission` after persistence. For routes, also perform the needed world/collision and vehicle constraint checks; unresolved geometry remains unknown, not collision-free. Report any failed or unavailable check explicitly.
+5. Hand off the saved, read-back, validated mission to the user. Do not run or dispatch it.
+
+## Explicit debug repair
+
+When the user says “hãy debug” or asks to debug a run, first inspect the latest report/run of the exact resolved mission with `tool_skytrack_report_read(mission_id=<exact mission_id>)`; use an execution ID supplied by the user when they provide one. If the mission-bound report is unavailable, ask for user-provided logs, screenshots, video, or other media with clear run provenance. Do not infer a root cause from a plan, or substitute another mission's latest run. Diagnose from evidence, recheck edit permission, and if verified make a targeted repair to that same mission through the transactional loop above. Then hand off to the user for a rerun in SkyTrack Desktop. The agent never executes the rerun.
+
+## Tool references
+
+- Target and permission: `tool_skytrack_resolve_target`, `tool_skytrack_check_permission`
+- Read/save/validate: `tool_skytrack_get_mission`, `tool_skytrack_get_mission_json`, `tool_skytrack_patch_mission`, `tool_skytrack_save_mission`, `write_and_save_uav_script`, `tool_skytrack_validate_mission`
+- Planning context: `tool_skytrack_inspect_world`, `tool_skytrack_get_vehicle_context`, `check_route_collisions`, `get_uav_python_sdk_reference`
+- Debug evidence: `tool_skytrack_report_read`, `tool_skytrack_logs`; user-supplied media remains the user's evidence

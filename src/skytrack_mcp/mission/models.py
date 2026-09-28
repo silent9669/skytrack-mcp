@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import uuid
 from enum import Enum
-from typing import Any, Dict, List, Literal, Optional, Tuple, Union
+from typing import Any, Literal
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -39,8 +40,8 @@ class Waypoint(BaseModel):
     x: float = Field(description="East coordinate in meters")
     y: float = Field(description="North coordinate in meters")
     z: float = Field(description="Up altitude in meters")
-    target_speed: Optional[float] = Field(default=None, description="Leg speed in m/s")
-    after_action: Optional[str] = Field(
+    target_speed: float | None = Field(default=None, description="Leg speed in m/s")
+    after_action: str | None = Field(
         default=None,
         description="Action attached at this waypoint: drop-ball, take-snapshot, etc.",
     )
@@ -52,11 +53,11 @@ class NoFlyZoneVolume(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     frame: Literal["enu", "wgs84"] = "enu"
     inclusion: bool = False
-    center: Optional[Tuple[float, float]] = None
-    radius: Optional[float] = None
-    polygon: Optional[List[Tuple[float, float]]] = None
-    z_min: Optional[float] = None
-    z_max: Optional[float] = None
+    center: tuple[float, float] | None = None
+    radius: float | None = None
+    polygon: list[tuple[float, float]] | None = None
+    z_min: float | None = None
+    z_max: float | None = None
 
 
 class ValidationSeverity(str, Enum):
@@ -69,15 +70,15 @@ class ValidationIssue(BaseModel):
     severity: ValidationSeverity
     code: str
     message: str
-    action_index: Optional[int] = None
-    action_id: Optional[str] = None
-    fix_suggestion: Optional[str] = None
+    action_index: int | None = None
+    action_id: str | None = None
+    fix_suggestion: str | None = None
 
 
 class ValidationResult(BaseModel):
     valid: bool
-    issues: List[ValidationIssue] = Field(default_factory=list)
-    stats: Dict[str, Any] = Field(default_factory=dict)
+    issues: list[ValidationIssue] = Field(default_factory=list)
+    stats: dict[str, Any] = Field(default_factory=dict)
 
 
 class CanonicalMission(BaseModel):
@@ -95,8 +96,10 @@ class CanonicalMission(BaseModel):
     target_speed: float = 2.0
     safety_option: Literal["avoid", "brake", "off"] = "avoid"
     end_action: Literal["rtl", "land"] = "rtl"
-    spawn_location: List[float] = Field(default_factory=lambda: [0.0, 0.0, 0.0])
-    waypoints: List[Waypoint] = Field(default_factory=list)
-    raw_actions: List[Dict[str, Any]] = Field(default_factory=list)
-    no_fly_zones: List[NoFlyZoneVolume] = Field(default_factory=list)
-    python_script: Optional[str] = None
+    spawn_location: list[float] = Field(default_factory=lambda: [0.0, 0.0, 0.0])
+    waypoints: list[Waypoint] = Field(default_factory=list)
+    raw_actions: list[dict[str, Any]] = Field(default_factory=list)
+    raw_plan: dict[str, Any] = Field(default_factory=dict, exclude=True)
+    raw_mission: dict[str, Any] = Field(default_factory=dict, exclude=True)
+    no_fly_zones: list[NoFlyZoneVolume] = Field(default_factory=list)
+    python_script: str | None = None

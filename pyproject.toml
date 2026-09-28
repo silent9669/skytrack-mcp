@@ -1,6 +1,6 @@
 [project]
 name = "skytrack-mcp"
-version = "0.1.0"
+version = "0.2.0"
 description = "Model Context Protocol (MCP) server for SkyTrack UAV simulation, map inspection, visual route drawing, and Python autonomy code execution."
 readme = "README.md"
 requires-python = ">=3.10"

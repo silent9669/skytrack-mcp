@@ -1,38 +1,43 @@
-# SkyTrack MCP Server
+# SkyTrack MCP Server 0.2.0
 
-Model Context Protocol (MCP) server for **SkyTrack Mission Studio**.
+A cross-platform Model Context Protocol (MCP) server and Claude Code plugin for **SkyTrack Mission Studio**.
 
-Enables AI agents (Claude, Cursor, Gemini) to inspect 3D Gazebo environments, author missions (interactive visual routes & ROS 2 Python autonomy scripts), operate the SkyTrack desktop application and Cloud API, execute simulations, and verify flight outcomes against real physical reports.
+AI agents can inspect SkyTrack projects and worlds, safely author and validate missions as visual Plans or ROS 2 Python autonomy scripts, and analyze mission-bound reports. The agent resolves exact project/mission IDs and checks edit permission before writes. **The user runs every simulation in SkyTrack Desktop (Local Docker or Cloud); the agent never dispatches or controls flights.**
 
 ---
 
 ## 1. System Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│             AI Agent (Claude / Cursor / Gemini)             │
-└──────────────────────────────┬──────────────────────────────┘
-                               │ MCP Protocol (stdio / JSON-RPC)
+┌──────────────────────────────────────────────────────────────┐
+│  Claude Code / OpenCode / Codex / other MCP host              │
+│  Natural-language skill discovery + optional slash command   │
+└──────────────────────────────┬───────────────────────────────┘
+                               │ MCP stdio (JSON-RPC)
                                ▼
-┌─────────────────────────────────────────────────────────────┐
-│                  SkyTrack MCP Server Layer                  │
-│  • Mission Authoring: visual route (plan.json) & script.py  │
-│  • 3D Gazebo World Inspection & AABB Collision Guard        │
-│  • Autonomy SDK Levels 1–6 (local_planner / skytrack_autonomy)│
-│  • Cloud BFF API & Local ClientData Storage Synchronization │
-│  • Docker Simulation Stack Lifecycle & MAVLink Telemetry    │
-│  • Authentic Mission Report Harvesting & Rubric Evaluation  │
-└───────────────┬─────────────────────────────┬───────────────┘
-                │                             │
-                ▼                             ▼
-┌──────────────────────────────┐┌──────────────────────────────┐
-│   SkyTrack Desktop & Cloud   ││    Docker Simulation Stack   │
-│  • Electron UI / ClientData  ││  • Gazebo Harmonic 3D Sim    │
-│  • platform.getskytrack.com  ││  • PX4 SITL Flight Controller│
-│  • 3D Map / Code Mission View││  • ROS 2 Jazzy Autonomy      │
-│  • Real-time Flight Status   ││  • GCS Backend (:20002)      │
-└──────────────────────────────┘└──────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                     SkyTrack MCP Server                      │
+│  • Exact project/mission target resolution                   │
+│  • Verified edit-permission checks; read-only when uncertain │
+│  • Plan and Code authoring with snapshot-backed persistence   │
+│  • Mission read-back, static validation, world/route checks  │
+│  • Mission-bound report reading and requirement analysis     │
+└───────────────────────┬──────────────────────────────────────┘
+                        │ inspect / authorize / author / analyze
+                        ▼
+┌──────────────────────────────────────────────────────────────┐
+│              SkyTrack Desktop & Cloud                        │
+│  Projects, missions, ClientData, reports, and mission views   │
+└──────────────────────────────┬───────────────────────────────┘
+                               │
+                               ▼
+┌──────────────────────────────────────────────────────────────┐
+│ User-run simulation in SkyTrack Desktop                      │
+│ Local Docker or Cloud — agent does not dispatch or control it │
+└──────────────────────────────────────────────────────────────┘
 ```
+
+Version 0.2.0 packages the server with a Claude Code plugin and operational skills. Mission changes are target- and permission-gated, saved with a recoverable transaction/snapshot path, read back, and statically checked. A saved or validated route is not flight evidence.
 
 ---
 
@@ -44,7 +49,7 @@ Enables AI agents (Claude, Cursor, Gemini) to inspect 3D Gazebo environments, au
 - [uv](https://github.com/astral-sh/uv) or `pip`
 - Docker Desktop (for SkyTrack simulation stack)
 
-### 1. Clone & Install
+### Clone & Install
 ```bash
 git clone https://github.com/silent9669/skytrack-mcp.git
 cd skytrack-mcp
@@ -55,22 +60,67 @@ source .venv/bin/activate
 uv pip install -e ".[dev]"
 ```
 
-### 2. Verify Installation
+### Verify Installation
 ```bash
-# Run complete test suite (40 unit, live, regression & benchmark tests)
-pytest -v
+# Run offline unit, regression, and benchmark tests
+pytest -v -m "not live_simulation"
 
-# Run the Hackathon 2026 Urban Fire Rescue Autonomous Mission
+# With the SkyTrack Docker stack running, run the environment-dependent checks
+pytest -v -m live_simulation
+
+# Score a synthetic Urban Fire Rescue dry-run (not native flight evidence)
 python evals/run_hackathon_mission.py
+# Live simulation attempts are user-run in SkyTrack Desktop; the agent never dispatches flights
 ```
 
-### 3. Add to Claude Code CLI
+### Install the Claude Code plugin globally (user scope)
+
+The repository contains a Claude Code plugin manifest, SkyTrack skills, and a portable stdio MCP configuration. Clone the release into Claude Code's user-scope skills directory; Claude Code discovers plugin directories there without a separate install command:
+
 ```bash
-claude mcp add skytrack -- $(pwd)/.venv/bin/skytrack-mcp
+mkdir -p ~/.claude/skills
+git clone --branch v0.2.0 --depth 1 \
+  https://github.com/silent9669/skytrack-mcp.git \
+  ~/.claude/skills/skytrack
 ```
 
-### 4. Add to Claude Desktop
-Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
+Start a new Claude Code session (or run `/reload-plugins` in an existing session). The plugin is available across projects on this machine; its naturally discoverable skill handles SkyTrack requests, and `/skytrack` is an optional shortcut when the repository skill is in scope. The MCP server starts with `uv run skytrack-mcp` from the plugin root. To update, fetch and check out a newer release tag in `~/.claude/skills/skytrack`.
+
+### Configure OpenCode (user scope)
+
+On macOS and Linux, put the following in `~/.config/opencode/opencode.json`. Replace the `cwd` placeholder with the absolute path to your SkyTrack MCP checkout (the same path format works on either OS):
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "skytrack": {
+      "type": "local",
+      "command": ["uv", "run", "skytrack-mcp"],
+      "cwd": "/absolute/path/to/skytrack-mcp",
+      "enabled": true
+    }
+  }
+}
+```
+
+### Configure Codex (user scope)
+
+On macOS and Linux, add this to `~/.codex/config.toml`, replacing the `cwd` placeholder with the absolute path to your SkyTrack MCP checkout:
+
+```toml
+[mcp_servers.skytrack]
+command = "uv"
+args = ["run", "skytrack-mcp"]
+cwd = "/absolute/path/to/skytrack-mcp"
+```
+
+These direct stdio configurations require `uv` and Python 3.10 or newer. In every host, the agent authors, saves, reads back, and validates the mission; the user launches simulations in SkyTrack Desktop using Local Docker or Cloud. Reviewing or debugging a report does not start a flight.
+
+### Configure Claude Desktop (optional)
+
+For Claude Desktop, use the installed console script's absolute path in `claude_desktop_config.json`:
+
 ```json
 {
   "mcpServers": {
@@ -109,7 +159,7 @@ To retrieve a verified template for any level:
 - **Environment & UI:** `tool_skytrack_status`, `tool_skytrack_focus`, `tool_ui_snapshot`, `tool_ui_click`
 - **World & Collisions:** `inspect_world_map`, `check_route_collisions`, `tool_skytrack_list_worlds`
 - **Missions & Cloud:** `tool_skytrack_create_mission`, `draw_route_on_map`, `convert_route_to_python_script`, `sync_mission_to_cloud`
-- **Simulation Control:** `manage_simulation_stack`, `execute_route_mission`, `run_mission_and_wait_completion`, `get_uav_telemetry`
+- **Simulation boundary:** The user runs simulations in SkyTrack Desktop (Local Docker or Cloud). The agent must not dispatch, start, stop, restart, or control flights.
 - **Verification & Reports:** `harvest_flight_report`, `tool_skytrack_report_read`, `tool_skytrack_verify_mission_requirements`, `validate_uav_python_code`
 
 ---
@@ -119,8 +169,10 @@ To retrieve a verified template for any level:
 ```
 skytrack-mcp/
 ├── src/skytrack_mcp/         # MCP server, autonomy SDK, simulation & clients
-├── skills/                   # Agent operational skillbook (10 skills)
-├── tests/                    # 40 pytest unit, integration, and benchmark tests
+├── .claude-plugin/           # Global Claude Code plugin manifest
+├── .claude/skills/skytrack/  # Discoverable SkyTrack skill / optional slash shortcut
+├── skills/                   # Agent operational playbooks (10 internal guides)
+├── tests/                    # Pytest unit, integration, and benchmark tests
 ├── evals/                    # Test catalog, regressions, and Hackathon runner
 │   ├── catalog/              # Formal test specifications (YAML)
 │   ├── expected/             # Independent geometric and rubric evaluators

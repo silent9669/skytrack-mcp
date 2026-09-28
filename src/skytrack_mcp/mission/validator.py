@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import math
-from typing import List
+from typing import Any, List
 
+from skytrack_mcp.autonomy_sdk import validate_uav_python_code
 from skytrack_mcp.mission.models import (
     CanonicalMission,
     ValidationIssue,
@@ -69,8 +70,41 @@ def validate_canonical_mission(mission: CanonicalMission) -> ValidationResult:
     """Run full static pre-flight validation against CanonicalMission."""
     issues: List[ValidationIssue] = []
 
-    # 1. Waypoint count
-    if not mission.waypoints and not mission.raw_actions:
+    # 1. Waypoint count or code script
+    code_readiness = None
+    if mission.code_mode:
+        if not mission.python_script or not mission.python_script.strip():
+            issues.append(
+                ValidationIssue(
+                    severity=ValidationSeverity.ERROR,
+                    code="EMPTY_CODE_SCRIPT",
+                    message="Code Mode mission does not contain a Python script.",
+                    fix_suggestion="Add a non-empty Python autonomy script.",
+                )
+            )
+        else:
+            code_readiness = validate_uav_python_code(mission.python_script)
+            if not code_readiness["static_valid"]:
+                issues.append(
+                    ValidationIssue(
+                        severity=ValidationSeverity.ERROR,
+                        code="INVALID_CODE_SCRIPT",
+                        message="Python mission failed static validation: "
+                        + "; ".join(code_readiness["errors"]),
+                        fix_suggestion="Fix the Python syntax or static validation errors.",
+                    )
+                )
+            elif not code_readiness["execution_ready"]:
+                issues.append(
+                    ValidationIssue(
+                        severity=ValidationSeverity.ERROR,
+                        code="CODE_NOT_EXECUTION_READY",
+                        message="Python mission is not execution-ready: "
+                        + "; ".join(code_readiness["readiness_issues"]),
+                        fix_suggestion="Resolve the code readiness issues before using this mission.",
+                    )
+                )
+    elif not mission.waypoints and not mission.raw_actions:
         issues.append(
             ValidationIssue(
                 severity=ValidationSeverity.ERROR,
@@ -226,6 +260,29 @@ def validate_canonical_mission(mission: CanonicalMission) -> ValidationResult:
             _compute_total_distance(mission.waypoints) / max(0.5, mission.target_speed), 1
         ),
     }
+    if mission.code_mode:
+        stats["code_readiness"] = (
+            {
+                "syntax_valid": False,
+                "static_valid": False,
+                "sdk_reference_alignment": "UNKNOWN",
+                "installed_sdk_compatibility": "UNKNOWN",
+                "execution_ready": False,
+                "readiness_issues": ["Code Mode mission does not contain a Python script."],
+            }
+            if code_readiness is None
+            else {
+                key: code_readiness[key]
+                for key in (
+                    "syntax_valid",
+                    "static_valid",
+                    "sdk_reference_alignment",
+                    "installed_sdk_compatibility",
+                    "execution_ready",
+                    "readiness_issues",
+                )
+            }
+        )
 
     return ValidationResult(
         valid=not has_errors,

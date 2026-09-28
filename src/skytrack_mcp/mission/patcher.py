@@ -7,8 +7,9 @@ import json
 import shutil
 import uuid
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
+from skytrack_mcp.clients.storage_sync import commit_mission_files
 from skytrack_mcp.core.errors import SkyTrackError, SkyTrackErrorCode
 from skytrack_mcp.mission.models import CanonicalMission, Waypoint
 from skytrack_mcp.mission.parser import canonical_to_ui_dicts, parse_ui_mission
@@ -86,21 +87,25 @@ class MissionPatcher:
                 dst.unlink()
 
     def save_canonical(self, mission: CanonicalMission, preserve_snapshot: bool = True) -> str:
-        """Serialize and atomically write CanonicalMission back to plan.json and mission.json."""
-        snap_id = self.create_snapshot() if preserve_snapshot else ""
+        """Serialize and atomically write CanonicalMission back to its local files."""
         plan_dict, mission_dict = canonical_to_ui_dicts(mission)
-
-        self.plan_file.write_text(json.dumps(plan_dict, indent=2), encoding="utf-8")
-        self.mission_file.write_text(json.dumps(mission_dict, indent=2), encoding="utf-8")
-
+        snap_id = self.create_snapshot() if preserve_snapshot else ""
+        updates = {
+            "plan.json": json.dumps(plan_dict, indent=2),
+            "mission.json": json.dumps(mission_dict, indent=2),
+        }
         if mission.python_script is not None:
-            self.script_file.write_text(mission.python_script, encoding="utf-8")
-
+            updates["script.py"] = mission.python_script
+        commit_mission_files(self.mission_dir, updates)
         return snap_id
 
-    def patch_mission(self, patches: Dict[str, Any]) -> Tuple[CanonicalMission, str]:
+    def patch_mission(self, patches: dict[str, Any]) -> tuple[CanonicalMission, str]:
         """Apply patch-style operations to the mission and save."""
         mission = self.load_canonical()
+        waypoint_patch_keys = {"add_waypoints", "set_waypoints", "remove_waypoint_ids"}
+        sequences = mission.raw_plan.get("sequences", [])
+        if waypoint_patch_keys.intersection(patches) and isinstance(sequences, list) and len(sequences) > 1:
+            raise ValueError("UNSUPPORTED_PLAN_SHAPE")
         snap_id = self.create_snapshot()
 
         # Update metadata if provided

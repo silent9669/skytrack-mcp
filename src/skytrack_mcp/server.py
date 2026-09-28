@@ -91,6 +91,11 @@ from skytrack_mcp.mcp.tools import (
     tool_skytrack_report_read,
     tool_skytrack_resolve_target,
     tool_skytrack_check_permission,
+    tool_skytrack_author_plan,
+    tool_skytrack_author_code,
+    tool_skytrack_switch_mode,
+    tool_skytrack_debug_mission,
+    tool_skytrack_evaluate_semifinal_2026,
     tool_skytrack_save_mission,
     tool_skytrack_select_vehicle,
     tool_skytrack_select_world,
@@ -232,22 +237,27 @@ def skytrack_explain_report(mission_id: str = "") -> str:
 mcp.tool()(tool_skytrack_status)
 mcp.tool()(tool_skytrack_get_version)
 
-# 2. Projects / Missions (Read-Only)
+# 2. Projects / Missions (Read-Only & Gated Authoring)
 mcp.tool()(tool_skytrack_list_projects)
 mcp.tool()(tool_skytrack_list_missions)
 mcp.tool()(tool_skytrack_resolve_target)
 mcp.tool()(tool_skytrack_check_permission)
 mcp.tool()(tool_skytrack_open_mission)
+mcp.tool()(tool_skytrack_author_plan)
+mcp.tool()(tool_skytrack_author_code)
+mcp.tool()(tool_skytrack_switch_mode)
 
-# 3. Mission Structured Access (Read-Only)
+# 3. Mission Structured Access & Debugging
 mcp.tool()(tool_skytrack_get_mission)
 mcp.tool()(tool_skytrack_get_mission_json)
 mcp.tool()(tool_skytrack_validate_mission)
+mcp.tool()(tool_skytrack_debug_mission)
 
-# 4. World / Environment (Read-Only)
+# 4. World / Environment & Scenarios
 mcp.tool()(tool_skytrack_list_worlds)
 mcp.tool()(tool_skytrack_get_world_context)
 mcp.tool()(tool_skytrack_inspect_world)
+mcp.tool()(tool_skytrack_evaluate_semifinal_2026)
 
 # 5. Vehicle (Read-Only)
 mcp.tool()(tool_skytrack_list_vehicles)

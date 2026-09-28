@@ -28,6 +28,8 @@ from skytrack_mcp.clients.storage_sync import (
     list_all_missions,
     read_mission_details,
     resolve_mission_dir,
+    switch_mission_mode,
+    write_python_script,
     write_visual_route,
 )
 from skytrack_mcp.core.errors import SkyTrackError, SkyTrackErrorCode
@@ -279,6 +281,221 @@ def tool_skytrack_open_mission(
         }
 
     return read_mission_details(mission_id=target.mission_id, project_id=target.project_id)
+
+
+def tool_skytrack_author_plan(
+    project_id: str,
+    mission_id: str,
+    waypoints: list[dict[str, Any]],
+    takeoff_altitude: float = 2.5,
+    target_speed: float = 2.0,
+    safety_option: str = "avoid",
+    end_action: str = "rtl",
+    world: str | None = None,
+    vehicle: str | None = None,
+) -> dict[str, Any]:
+    """Author or update visual Plan waypoints for an exact existing mission with verified permissions."""
+    target = _resolve_read_target(mission_id, project_id)
+    if target.status == TargetResolutionStatus.UNAVAILABLE:
+        return {"status": "UNAVAILABLE", "error": target.error_message}
+    if target.status != TargetResolutionStatus.EXACT:
+        return {
+            "status": "PERMISSION_DENIED",
+            "error": f"Mission '{mission_id}' does not belong to the active authenticated SkyTrack account.",
+        }
+    if not target.cached_locally or not target.path:
+        return {
+            "status": "ARTIFACT_NOT_CACHED",
+            "project_id": target.project_id,
+            "mission_id": target.mission_id,
+            "message": "ARTIFACT_NOT_CACHED: Open the mission in SkyTrack Desktop first.",
+        }
+
+    from skytrack_mcp.session.auth import EditAuthorizationStatus, verify_project_edit_permission
+
+    perm = verify_project_edit_permission(project_id=target.project_id, mission_id=target.mission_id)
+    if perm.edit_authorization != EditAuthorizationStatus.VERIFIED:
+        return {
+            "status": "PERMISSION_UNVERIFIED",
+            "error": f"Edit permission unverified ({perm.reason}); file write refused.",
+            "permission": perm.to_dict(),
+        }
+
+    write_res = write_visual_route(
+        waypoints=waypoints,
+        mission_id=target.mission_id,
+        project_id=target.project_id,
+        takeoff_altitude=takeoff_altitude,
+        target_speed=target_speed,
+        safety_option=safety_option,
+        end_action=end_action,
+        world=world,
+        vehicle=vehicle,
+    )
+    return {
+        "status": "SUCCESS",
+        "persistence": "SAVED_AND_READ_BACK",
+        "project_id": target.project_id,
+        "mission_id": target.mission_id,
+        "refresh_instruction": "Reopen or refresh the mission in SkyTrack Desktop to view updated plan waypoints.",
+        "details": write_res,
+    }
+
+
+def tool_skytrack_author_code(
+    project_id: str,
+    mission_id: str,
+    python_code: str,
+    switch_to_code_mode: bool = True,
+) -> dict[str, Any]:
+    """Author or update Python autonomy script.py for an exact mission with verified permissions."""
+    target = _resolve_read_target(mission_id, project_id)
+    if target.status == TargetResolutionStatus.UNAVAILABLE:
+        return {"status": "UNAVAILABLE", "error": target.error_message}
+    if target.status != TargetResolutionStatus.EXACT:
+        return {
+            "status": "PERMISSION_DENIED",
+            "error": f"Mission '{mission_id}' does not belong to the active authenticated SkyTrack account.",
+        }
+    if not target.cached_locally or not target.path:
+        return {
+            "status": "ARTIFACT_NOT_CACHED",
+            "project_id": target.project_id,
+            "mission_id": target.mission_id,
+            "message": "ARTIFACT_NOT_CACHED: Open the mission in SkyTrack Desktop first.",
+        }
+
+    from skytrack_mcp.session.auth import EditAuthorizationStatus, verify_project_edit_permission
+
+    perm = verify_project_edit_permission(project_id=target.project_id, mission_id=target.mission_id)
+    if perm.edit_authorization != EditAuthorizationStatus.VERIFIED:
+        return {
+            "status": "PERMISSION_UNVERIFIED",
+            "error": f"Edit permission unverified ({perm.reason}); file write refused.",
+            "permission": perm.to_dict(),
+        }
+
+    from skytrack_mcp.autonomy_sdk import validate_uav_python_code
+
+    validation = validate_uav_python_code(python_code)
+
+    write_res = write_python_script(
+        python_code=python_code,
+        mission_id=target.mission_id,
+        project_id=target.project_id,
+        switch_to_code_mode=switch_to_code_mode,
+    )
+    return {
+        "status": "SUCCESS",
+        "persistence": "SAVED_AND_READ_BACK",
+        "project_id": target.project_id,
+        "mission_id": target.mission_id,
+        "validation": validation,
+        "refresh_instruction": "Reopen or refresh the mission in SkyTrack Desktop to view updated script.",
+        "details": write_res,
+    }
+
+
+def tool_skytrack_switch_mode(
+    project_id: str,
+    mission_id: str,
+    code_mode: bool,
+) -> dict[str, Any]:
+    """Switch an exact mission between Plan Mode (code_mode=False) and Code Mode (code_mode=True)."""
+    target = _resolve_read_target(mission_id, project_id)
+    if target.status == TargetResolutionStatus.UNAVAILABLE:
+        return {"status": "UNAVAILABLE", "error": target.error_message}
+    if target.status != TargetResolutionStatus.EXACT:
+        return {
+            "status": "PERMISSION_DENIED",
+            "error": f"Mission '{mission_id}' does not belong to the active authenticated SkyTrack account.",
+        }
+    if not target.cached_locally or not target.path:
+        return {
+            "status": "ARTIFACT_NOT_CACHED",
+            "project_id": target.project_id,
+            "mission_id": target.mission_id,
+            "message": "ARTIFACT_NOT_CACHED: Open the mission in SkyTrack Desktop first.",
+        }
+
+    from skytrack_mcp.session.auth import EditAuthorizationStatus, verify_project_edit_permission
+
+    perm = verify_project_edit_permission(project_id=target.project_id, mission_id=target.mission_id)
+    if perm.edit_authorization != EditAuthorizationStatus.VERIFIED:
+        return {
+            "status": "PERMISSION_UNVERIFIED",
+            "error": f"Edit permission unverified ({perm.reason}); mode switch refused.",
+            "permission": perm.to_dict(),
+        }
+
+    return switch_mission_mode(
+        mission_id=target.mission_id,
+        project_id=target.project_id,
+        code_mode=code_mode,
+    )
+
+
+def tool_skytrack_debug_mission(
+    project_id: str,
+    mission_id: str,
+    execution_id: str | None = None,
+    user_supplied_logs: str | None = None,
+    user_supplied_report: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Inspect and diagnose an exact mission run from native reports, logs, and media."""
+    target = _resolve_read_target(mission_id, project_id)
+    if target.status == TargetResolutionStatus.UNAVAILABLE:
+        return {"status": "UNAVAILABLE", "error": target.error_message}
+    if target.status != TargetResolutionStatus.EXACT:
+        return {
+            "status": "PERMISSION_DENIED",
+            "error": f"Mission '{mission_id}' does not belong to the active authenticated SkyTrack account.",
+        }
+
+    from skytrack_mcp.report.debug import inspect_mission_run_evidence
+
+    return inspect_mission_run_evidence(
+        project_id=target.project_id,
+        mission_id=target.mission_id,
+        execution_id=execution_id,
+        user_supplied_logs=user_supplied_logs,
+        user_supplied_report=user_supplied_report,
+    )
+
+
+def tool_skytrack_evaluate_semifinal_2026(
+    flight_altitude_agl_m: float | None = None,
+    spray_altitude_agl_m: float | None = None,
+    residential_clearance_m: float | None = None,
+    landing_only_pad_approach: bool | None = None,
+    charging_pad_id: str | None = None,
+    touchdown_distance_m: float | None = None,
+    pad_identity_verified: bool | None = None,
+    sprayed_in_residential_buffer: bool | None = None,
+    flight_duration_s: float | None = None,
+    total_mission_duration_s: float | None = None,
+    model_id: str | None = None,
+    model_available_in_runtime: bool | None = None,
+    perception_correlated: bool | None = None,
+) -> dict[str, Any]:
+    """Evaluate 2026 Semifinal agricultural mission constraints and physics."""
+    from skytrack_mcp.scenarios.semifinal_2026 import evaluate_semifinal_compliance
+
+    return evaluate_semifinal_compliance(
+        flight_altitude_agl_m=flight_altitude_agl_m,
+        spray_altitude_agl_m=spray_altitude_agl_m,
+        residential_clearance_m=residential_clearance_m,
+        landing_only_pad_approach=landing_only_pad_approach,
+        charging_pad_id=charging_pad_id,
+        touchdown_distance_m=touchdown_distance_m,
+        pad_identity_verified=pad_identity_verified,
+        sprayed_in_residential_buffer=sprayed_in_residential_buffer,
+        flight_duration_s=flight_duration_s,
+        total_mission_duration_s=total_mission_duration_s,
+        model_id=model_id,
+        model_available_in_runtime=model_available_in_runtime,
+        perception_correlated=perception_correlated,
+    )
 
 
 def tool_skytrack_create_mission(

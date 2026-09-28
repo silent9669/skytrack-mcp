@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin.json",
+  "name": "skytrack",
+  "version": "0.2.0",
+  "description": "Cross-platform SkyTrack Mission Studio MCP & Autonomous Flight Engineering Skill for Claude Code",
+  "skills": [
+    "./.claude/skills/skytrack/",
+    "./skills/skytrack-operator/",
+    "./skills/skytrack-mission-authoring/"
+  ],
+  "mcpServers": {
+    "skytrack": {
+      "command": "uv",
+      "args": ["run", "skytrack-mcp"],
+      "env": {
+        "UV_PROJECT": "${CLAUDE_PLUGIN_ROOT}"
+      }
+    }
+  }
+}

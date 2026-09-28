@@ -92,6 +92,11 @@ EXPECTED_READ_ONLY_TOOLS = {
     "get_uav_python_sdk_reference",
     "get_autonomy_level_template",
     "list_skytrack_cloud_projects",
+    "tool_skytrack_author_plan",
+    "tool_skytrack_author_code",
+    "tool_skytrack_switch_mode",
+    "tool_skytrack_debug_mission",
+    "tool_skytrack_evaluate_semifinal_2026",
 }
 
 

@@ -1,11 +1,13 @@
 """Complete SkyTrack Autonomy SDK Reference, Level 1-6 Templates, and Semantic AST Validator.
-Aligned 100% with `GetSkyTrack/skytrack-autonomy-example` (develop branch).
+Aligned with pinned `GetSkyTrack/skytrack-autonomy-example` reference commit.
 """
 
 from __future__ import annotations
 
 import ast
 from typing import Any, Dict, List, Set
+
+SDK_REFERENCE_COMMIT = "bb0f5ba611c59cd68d32d1fe04b40765836a1b33"
 
 
 AUTONOMY_LEVEL_TEMPLATES: Dict[int, Dict[str, Any]] = {
@@ -230,12 +232,19 @@ from local_planner import (
     land,
     takeoff,
 )
+from skytrack_autonomy import Detector, Sprayer
 
 ALTITUDE_M = 3.5
+MODEL_NAME = "det-h2026-v26n-b-fp32-640"
+MODEL_CLASSES = ["stressed"]
+DETECT_TIMEOUT_S = 15.0
+SPRAYER_TIMEOUT_S = 3.0
 
 
 def scenario(ctx: Any) -> Iterator[Any]:
     rec = ctx.services.recorder
+    detector = ctx.services.detector
+    sprayer = ctx.services.sprayer
     yield takeoff(alt_m=ALTITUDE_M)
 
     rec.start(clip="patrol_pass")
@@ -243,10 +252,61 @@ def scenario(ctx: Any) -> Iterator[Any]:
     yield brake()
     yield capture(filename="target_1.jpg")
 
+    before_count = detector.count
+    if detector.request(
+        model_name=MODEL_NAME,
+        classes=MODEL_CLASSES,
+        confidence_threshold=0.5,
+    ):
+        deadline = ctx.world.now() + DETECT_TIMEOUT_S
+        yield SkillStep(
+            skill=brake(name="wait_for_detection").skill,
+            is_done=lambda c: (
+                detector.count > before_count or c.world.now() >= deadline
+            ),
+            name="wait_for_detection",
+        )
+        result = detector.last_result
+        if detector.count > before_count and result is not None and result.success:
+            ctx.world.log_info(
+                f"Detected {result.num_detections} stressed-area object(s)."
+            )
+        else:
+            ctx.world.log_warn(
+                "Detector returned no fresh successful result before timeout."
+            )
+    else:
+        ctx.world.log_warn("Detector refused the stressed-area request.")
+
     yield fly_to(north=5.0, east=5.0, alt_m=ALTITUDE_M, mode="transit")
     yield brake()
     yield capture(filename="target_2.jpg")
     rec.stop()
+
+    if sprayer.on():
+        deadline = ctx.world.now() + SPRAYER_TIMEOUT_S
+        yield SkillStep(
+            skill=brake(name="wait_for_sprayer").skill,
+            is_done=lambda c: sprayer.is_settled or c.world.now() >= deadline,
+            name="wait_for_sprayer",
+        )
+        if not sprayer.state or not sprayer.is_settled:
+            ctx.world.log_warn("Sprayer did not settle open before timeout.")
+        if sprayer.off():
+            deadline = ctx.world.now() + SPRAYER_TIMEOUT_S
+            yield SkillStep(
+                skill=brake(name="wait_for_sprayer_closed").skill,
+                is_done=lambda c: (
+                    sprayer.is_settled and not sprayer.state
+                ) or c.world.now() >= deadline,
+                name="wait_for_sprayer_closed",
+            )
+            if sprayer.state or not sprayer.is_settled:
+                ctx.world.log_warn("Sprayer did not settle closed before timeout.")
+        else:
+            ctx.world.log_warn("Sprayer refused to close.")
+    else:
+        ctx.world.log_warn("Sprayer refused to open.")
 
     yield fly_to(north=0.0, east=0.0, alt_m=ALTITUDE_M, name="return_home")
     yield brake()
@@ -261,6 +321,13 @@ def main() -> None:
         drone.add_sense(CameraSense())
         drone.add_service(VideoRecorder(output_dir="~/.ros/recordings", fps=10.0))
         drone.add_service(Snapshot(output_dir="~/.ros/captures"))
+        drone.add_service(
+            Detector(
+                model_name="det-h2026-v26n-b-fp32-640",
+                classes=["stressed"],
+            )
+        )
+        drone.add_service(Sprayer())
         drone.fly(scenario)
         drone.run()
 
@@ -474,6 +541,7 @@ def validate_uav_python_code(python_code: str) -> Dict[str, Any]:
     """
     errors: List[str] = []
     warnings: List[str] = []
+    readiness_issues: list[str] = []
     used_steps: Set[str] = set()
     used_senses: Set[str] = set()
     used_services: Set[str] = set()
@@ -488,15 +556,23 @@ def validate_uav_python_code(python_code: str) -> Dict[str, Any]:
     try:
         tree = ast.parse(python_code)
     except SyntaxError as exc:
+        syntax_issue = f"SyntaxError at line {exc.lineno}: {exc.msg}"
         return {
             "valid": False,
             "detected_level": 0,
-            "errors": [f"SyntaxError at line {exc.lineno}: {exc.msg}"],
+            "errors": [syntax_issue],
             "warnings": [],
             "used_steps": [],
             "used_senses": [],
             "used_services": [],
             "custom_components": custom_components,
+            "syntax_valid": False,
+            "static_valid": False,
+            "sdk_reference_alignment": "UNKNOWN",
+            "sdk_compatibility": "UNKNOWN",
+            "installed_sdk_compatibility": "UNKNOWN",
+            "execution_ready": False,
+            "readiness_issues": [syntax_issue],
         }
 
     has_boot_drone = False
@@ -530,6 +606,77 @@ def validate_uav_python_code(python_code: str) -> Dict[str, Any]:
         "NoFlyZoneSense",
         "LandingSpotSense",
     }
+
+    service_imports: dict[str, tuple[str, str]] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            for alias in node.names:
+                if alias.name in {"Detector", "Sprayer"}:
+                    local_name = alias.asname or alias.name
+                    service_imports[local_name] = (node.module or "", alias.name)
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                module_alias = alias.asname or alias.name.split(".")[0]
+                if alias.name in {"skytrack_autonomy", "local_planner"}:
+                    service_imports[module_alias] = (alias.name, "")
+
+    referenced_services = {
+        node.id
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Name) and node.id in {"Detector", "Sprayer"}
+    }
+    referenced_services.update(
+        node.attr
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Attribute) and node.attr in {"Detector", "Sprayer"}
+    )
+    provenance_issues: list[str] = []
+    for local_name, (module, imported_name) in service_imports.items():
+        if imported_name in {"Detector", "Sprayer"} and module != "skytrack_autonomy":
+            provenance_issues.append(
+                f"{imported_name} must be imported from skytrack_autonomy, not {module or 'an unknown module'}."
+            )
+    for service_name in referenced_services:
+        imported_canonically = any(
+            module == "skytrack_autonomy" and imported_name == service_name
+            for module, imported_name in service_imports.values()
+        ) or any(
+            module == "skytrack_autonomy"
+            and not imported_name
+            and any(
+                isinstance(node, ast.Attribute)
+                and node.attr == service_name
+                and isinstance(node.value, ast.Name)
+                and node.value.id == alias
+                for node in ast.walk(tree)
+            )
+            for alias, (module, imported_name) in service_imports.items()
+        )
+        if not imported_canonically:
+            provenance_issues.append(
+                f"{service_name} is referenced without an import from skytrack_autonomy."
+            )
+    provenance_issues = list(dict.fromkeys(provenance_issues))
+    sdk_modules = {
+        node.module
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and node.module in {"local_planner", "skytrack_autonomy"}
+    }
+    sdk_modules.update(
+        alias.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Import)
+        for alias in node.names
+        if alias.name in {"local_planner", "skytrack_autonomy"}
+    )
+    sdk_reference_alignment = (
+        "INCOMPATIBLE"
+        if provenance_issues
+        else "REFERENCE_MATCH"
+        if sdk_modules
+        else "UNKNOWN"
+    )
+    readiness_issues.extend(provenance_issues)
 
     # Inspect classes for custom Skills, Senses, Services, ControlModes, Commands
     for node in tree.body:
@@ -657,9 +804,13 @@ def validate_uav_python_code(python_code: str) -> Dict[str, Any]:
         )
 
     if not has_boot_drone:
-        warnings.append("Script does not call `boot_drone()`; ensure it initializes the ROS 2 node.")
+        issue = "Script does not call `boot_drone()`; ensure it initializes the ROS 2 node."
+        warnings.append(issue)
+        readiness_issues.append(issue)
     if not has_yield and not custom_components["modes"]:
-        warnings.append("No `yield` statement found; `scenario(ctx)` should yield SkillSteps.")
+        issue = "No `yield` statement found; `scenario(ctx)` should yield SkillSteps."
+        warnings.append(issue)
+        readiness_issues.append(issue)
 
     # Determine autonomy level (1..6)
     has_custom = any(len(v) > 0 for v in custom_components.values())
@@ -679,8 +830,10 @@ def validate_uav_python_code(python_code: str) -> Dict[str, Any]:
     else:
         detected_level = 1
 
+    readiness_issues.extend(f"Static validation error: {error}" for error in errors)
+    static_valid = len(errors) == 0
     return {
-        "valid": len(errors) == 0,
+        "valid": static_valid,
         "detected_level": detected_level,
         "errors": errors,
         "warnings": warnings,
@@ -688,6 +841,18 @@ def validate_uav_python_code(python_code: str) -> Dict[str, Any]:
         "used_senses": sorted(used_senses),
         "used_services": sorted(used_services),
         "custom_components": custom_components,
+        "syntax_valid": True,
+        "static_valid": static_valid,
+        "sdk_reference_alignment": sdk_reference_alignment,
+        "sdk_compatibility": sdk_reference_alignment,
+        "installed_sdk_compatibility": "UNKNOWN",
+        "execution_ready": (
+            static_valid
+            and has_boot_drone
+            and has_yield
+            and sdk_reference_alignment == "REFERENCE_MATCH"
+        ),
+        "readiness_issues": readiness_issues,
     }
 
 
@@ -695,8 +860,12 @@ def get_uav_python_sdk_reference_data() -> Dict[str, Any]:
     """Return complete 6-level curriculum, building block catalog, extension contracts, and known issues."""
     return {
         "sdk_module": "local_planner",
+        "reference_commit": SDK_REFERENCE_COMMIT,
         "execution_container": "skytrack-simulation-skytrack-autonomy-1",
-        "reference_repository": "https://github.com/GetSkyTrack/skytrack-autonomy-example/tree/develop",
+        "reference_repository": (
+            "https://github.com/GetSkyTrack/skytrack-autonomy-example/tree/"
+            f"{SDK_REFERENCE_COMMIT}"
+        ),
         "autonomy_levels_curriculum": {
             "Level 1 (Basics)": "Takeoff, fly_to(north, east, alt_m), brake, and land (`hello_mission.py`, `waypoints_mission.py`).",
             "Level 2 (Flight Patterns)": "orbit, helix spiral climb, yaw_to, and lawnmower coverage (`mode='coverage'`, `replan_mode='fast'`, `yaw_mode='course'`).",
@@ -728,7 +897,7 @@ def get_uav_python_sdk_reference_data() -> Dict[str, Any]:
             "VideoRecorder": "VideoRecorder(output_dir: str = '~/.ros/recordings', fps: float = 10.0)",
             "Snapshot": "Snapshot(output_dir: str = '~/.ros/captures')",
             "Sprayer": "Sprayer()",
-            "Detector": "Detector(model_name: str = 'yolov8n')",
+            "Detector": "Detector(model_name: str, classes: list[str])",
         },
         "example_script": AUTONOMY_LEVEL_TEMPLATES[4]["code"],
     }
