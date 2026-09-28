@@ -15,33 +15,19 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 from skytrack_mcp.config import CLIENT_DATA_DIR
+from skytrack_mcp.platform import derive_token_encryption_key, get_platform_machine_id
 
 CLOUD_BFF_URL = "https://platform.getskytrack.com"
 
 
 def get_macos_machine_id() -> str:
-    """Retrieve macOS IOPlatformUUID via ioreg."""
-    try:
-        res = subprocess.check_output(
-            ["ioreg", "-rd1", "-c", "IOPlatformExpertDevice"],
-            text=True,
-            timeout=5.0,
-        )
-        match = re.search(r'"IOPlatformUUID"\s*=\s*"([^"]+)"', res)
-        if match:
-            return match.group(1).lower().strip()
-        # Fallback split
-        raw = res.split("IOPlatformUUID")[1].split("\n")[0]
-        return re.sub(r'[\s="]', "", raw).lower().strip()
-    except Exception as exc:
-        raise RuntimeError(f"Failed to get macOS machine id: {exc}")
+    """Retrieve platform machine identifier (retained name for backward compatibility)."""
+    return get_platform_machine_id()
 
 
 def get_token_encryption_key() -> bytes:
-    """Derive AES-256 key: SHA256(SHA256(IOPlatformUUID).hexdigest())."""
-    uuid_str = get_macos_machine_id()
-    first_hash = hashlib.sha256(uuid_str.encode("utf-8")).hexdigest()
-    return hashlib.sha256(first_hash.encode("utf-8")).digest()
+    """Derive AES-256 key: SHA256(SHA256(machine_id).hexdigest())."""
+    return derive_token_encryption_key()
 
 
 def decrypt_client_data_file(file_path: Path) -> str:
@@ -55,19 +41,26 @@ def decrypt_client_data_file(file_path: Path) -> str:
         enc = re.sub(r"[^\x20-\x7E]", "", raw[10:]).strip()
         if ":" not in enc:
             return ""
-        iv_hex, cipher_hex = enc.split(":", 1)
-        key = get_token_encryption_key()
-        cipher = Cipher(
-            algorithms.AES(key),
-            modes.CBC(bytes.fromhex(iv_hex)),
-            backend=default_backend(),
-        )
-        decryptor = cipher.decryptor()
-        padded = decryptor.update(bytes.fromhex(cipher_hex)) + decryptor.finalize()
-        pad_len = padded[-1]
-        if 1 <= pad_len <= 16:
-            return padded[:-pad_len].decode("utf-8", errors="ignore")
-        return padded.decode("utf-8", errors="ignore")
+        try:
+            iv_hex, cipher_hex = enc.split(":", 1)
+            if not iv_hex or not cipher_hex:
+                return ""
+            key = get_token_encryption_key()
+            cipher = Cipher(
+                algorithms.AES(key),
+                modes.CBC(bytes.fromhex(iv_hex)),
+                backend=default_backend(),
+            )
+            decryptor = cipher.decryptor()
+            padded = decryptor.update(bytes.fromhex(cipher_hex)) + decryptor.finalize()
+            if not padded:
+                return ""
+            pad_len = padded[-1]
+            if 1 <= pad_len <= 16:
+                return padded[:-pad_len].decode("utf-8", errors="ignore")
+            return padded.decode("utf-8", errors="ignore")
+        except (ValueError, TypeError, OSError, RuntimeError, IndexError):
+            return ""
     return raw
 
 

@@ -82,54 +82,65 @@ def resolve_mission_dir(
     create_if_missing: bool = False,
 ) -> Tuple[Path, str, str]:
     """Resolve (mission_dir, project_id, mission_id).
-    If mission_id is None, returns the most recently modified mission."""
+
+    Requires an explicit mission_id; silent fallback to 'most recent' is prohibited.
+    Creation requires an explicit project_id; hardcoded project fallbacks are prohibited.
+    """
+    if not mission_id or not mission_id.strip():
+        raise ValueError("Explicit mission_id is required. Inferred or most-recent fallback is prohibited.")
+
     client_data_dir = client_data_dir or CLIENT_DATA_DIR
     missions = list_all_missions(client_data_dir)
 
-    if mission_id:
-        clean_id = mission_id.removeprefix("mis-")
-        for m in missions:
-            if m["mission_id"] == clean_id:
-                return Path(m["path"]), m["project_id"], m["mission_id"]
+    clean_id = mission_id.removeprefix("mis-").strip()
+    clean_prj_id = project_id.removeprefix("prj-").strip() if project_id else None
 
-        if create_if_missing:
-            prj_id = (
-                project_id.removeprefix("prj-")
-                if project_id
-                else (missions[0]["project_id"] if missions else "01M11QPK1C3Y5GFNBDADS8H7MC")
-            )
-            new_dir = client_data_dir / f"prj-{prj_id}" / f"mis-{clean_id}"
-            new_dir.mkdir(parents=True, exist_ok=True)
-            if not (new_dir / "mission.json").exists():
-                (new_dir / "mission.json").write_text(
-                    json.dumps({"world": "default", "vehicle": "x500_livox_mid_360", "codeMode": False}, indent=2),
-                    encoding="utf-8",
-                )
-            if not (new_dir / "plan.json").exists():
-                (new_dir / "plan.json").write_text(
-                    json.dumps({"spawnLocation": [0, 0, 0], "sequences": []}, indent=2),
-                    encoding="utf-8",
-                )
-            return new_dir, prj_id, clean_id
-
-        raise FileNotFoundError(
-            f"Mission '{mission_id}' not found. Available: {[m['mission_id'] for m in missions]}"
+    matches = [
+        m
+        for m in missions
+        if m["mission_id"] == clean_id
+        and (not clean_prj_id or m["project_id"] == clean_prj_id)
+    ]
+    if len(matches) == 1:
+        m = matches[0]
+        return Path(m["path"]), m["project_id"], m["mission_id"]
+    if len(matches) > 1:
+        raise ValueError(
+            f"Ambiguous mission_id '{clean_id}' exists in multiple projects: "
+            f"{[m['project_id'] for m in matches]}. Explicit project_id is required."
         )
 
-    if not missions:
-        raise FileNotFoundError(f"No SkyTrack missions found in {client_data_dir}")
+    if create_if_missing:
+        if not clean_prj_id:
+            raise ValueError("Cannot create mission without an explicit project_id. Hardcoded or guessed project fallbacks are prohibited.")
 
-    latest = missions[0]
-    return Path(latest["path"]), latest["project_id"], latest["mission_id"]
+        new_dir = client_data_dir / f"prj-{clean_prj_id}" / f"mis-{clean_id}"
+        new_dir.mkdir(parents=True, exist_ok=True)
+        if not (new_dir / "mission.json").exists():
+            (new_dir / "mission.json").write_text(
+                json.dumps({"world": "default", "vehicle": "x500_livox_mid_360", "codeMode": False}, indent=2),
+                encoding="utf-8",
+            )
+        if not (new_dir / "plan.json").exists():
+            (new_dir / "plan.json").write_text(
+                json.dumps({"spawnLocation": [0, 0, 0], "sequences": []}, indent=2),
+                encoding="utf-8",
+            )
+        return new_dir, clean_prj_id, clean_id
+
+    raise FileNotFoundError(
+        f"Mission '{mission_id}' not found. Available: {[m['mission_id'] for m in missions]}"
+    )
 
 
 def read_mission_details(
     mission_id: Optional[str] = None,
     client_data_dir: Optional[Path] = None,
+    project_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Read full mission.json, plan.json, and script.py for a mission."""
     client_data_dir = client_data_dir or CLIENT_DATA_DIR
-    mis_dir, prj_id, mis_id = resolve_mission_dir(mission_id, client_data_dir)
+    mis_dir, prj_id, mis_id = resolve_mission_dir(mission_id, client_data_dir, project_id=project_id)
     mission_file = mis_dir / "mission.json"
     plan_file = mis_dir / "plan.json"
     script_file = mis_dir / "script.py"

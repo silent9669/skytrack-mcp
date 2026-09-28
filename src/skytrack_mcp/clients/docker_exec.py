@@ -27,7 +27,7 @@ from skytrack_mcp.config import (
     USER_SCRIPT_PID_CONTAINER_PATH,
 )
 
-LOCAL_WORLD_CACHE_DIR = Path(__file__).resolve().parent.parent.parent.parent / ".world_cache"
+LOCAL_WORLD_CACHE_DIR = Path(__file__).resolve().parent.parent / "worlds"
 
 
 def _run_cmd(args: List[str], timeout: float = 15.0) -> subprocess.CompletedProcess[str]:
@@ -143,11 +143,13 @@ def inspect_world_sdf(
 
     obstacles: List[Dict[str, Any]] = []
     included_models: List[Dict[str, Any]] = []
+    unresolved_models: List[str] = []
 
     for inc_el in world_el.findall("include"):
         uri = (inc_el.findtext("uri") or "").strip()
         name = (inc_el.findtext("name") or uri.split("/")[-1] or "included").strip()
         pose = _parse_pose(inc_el.findtext("pose"))
+        unresolved_models.append(uri or name)
         included_models.append(
             {
                 "name": name,
@@ -248,6 +250,8 @@ def inspect_world_sdf(
                             "aabb": aabb,
                         }
                     )
+                else:
+                    unresolved_models.append(f"{model_name}/{col_name}")
 
     # Filter obstacles active at slice_altitude_m
     slice_obstacles = [
@@ -294,6 +298,8 @@ def inspect_world_sdf(
         "slice_altitude_m": slice_altitude_m,
         "obstacles": obstacles,
         "included_models": included_models,
+        "unresolved_models": unresolved_models,
+        "geometry_complete": not unresolved_models,
         "ascii_map_2d": "\n".join(grid_lines),
     }
 
@@ -363,7 +369,9 @@ def check_waypoints_collisions(
 
     return {
         "world": world_name,
-        "is_collision_free": len(conflicts) == 0,
+        "is_collision_free": len(conflicts) == 0 and world_info["geometry_complete"],
+        "geometry_complete": world_info["geometry_complete"],
+        "unresolved_models": world_info["unresolved_models"],
         "clearance_m": clearance_m,
         "legs_checked": max(0, len(waypoints) - 1),
         "conflicts": conflicts,
@@ -430,6 +438,26 @@ def fetch_live_mavlink_telemetry() -> Dict[str, Any]:
         "home_point": home,
         "ned_velocity": raw.get("ned_velocity"),
         "gps_status": raw.get("gps"),
+    }
+
+
+def get_simulation_runtime_config() -> Dict[str, Optional[str]]:
+    """Read the world and vehicle configured on the running Gazebo/PX4 containers."""
+    configs = []
+    for container in (GAZEBO_CONTAINER, "skytrack-simulation-px4-1"):
+        res = _run_cmd(["docker", "inspect", container, "--format", "{{json .Config.Env}}"], timeout=10.0)
+        if res.returncode != 0:
+            return {"world": None, "vehicle": None}
+        try:
+            configs.append(dict(entry.split("=", 1) for entry in json.loads(res.stdout) if "=" in entry))
+        except (TypeError, ValueError):
+            return {"world": None, "vehicle": None}
+
+    gazebo, px4 = configs
+    world = gazebo.get("GZ_WORLD")
+    return {
+        "world": world if world and world == px4.get("PX4_GZ_WORLD") else None,
+        "vehicle": px4.get("PX4_SIM_MODEL"),
     }
 
 

@@ -19,7 +19,7 @@ from skytrack_mcp.world.geometry import (
     parse_pose,
 )
 
-LOCAL_WORLD_CACHE_DIR = Path(__file__).resolve().parent.parent.parent.parent / ".world_cache"
+LOCAL_WORLD_CACHE_DIR = Path(__file__).resolve().parent.parent / "worlds"
 
 
 def read_sdf_content(world_name: str) -> str:

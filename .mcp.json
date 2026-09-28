@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "skytrack": {
-      "command": "/Users/phucdang/Documents/skytrack-mcp/.venv/bin/skytrack-mcp",
-      "args": []
+      "command": "uv",
+      "args": ["run", "skytrack-mcp"]
     }
   }
 }

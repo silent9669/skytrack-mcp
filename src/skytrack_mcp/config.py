@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from skytrack_mcp.platform import get_default_client_data_dir
+
 # Local HTTP / WebSocket endpoints exposed by SkyTrack containers
 GCS_BACKEND_URL = os.environ.get("SKYTRACK_GCS_URL", "http://127.0.0.1:20002")
 GCS_FEEDBACK_WS_URL = os.environ.get("SKYTRACK_GCS_WS_URL", "ws://127.0.0.1:20002/ws/feedback")
@@ -12,9 +14,9 @@ PATH_PLANNER_URL = os.environ.get("SKYTRACK_PLANNER_URL", "http://127.0.0.1:2000
 GAZEBO_URL = os.environ.get("SKYTRACK_GAZEBO_URL", "http://127.0.0.1:20005")
 FILE_STORAGE_URL = os.environ.get("SKYTRACK_STORAGE_URL", "http://127.0.0.1:20080")
 
-# Local SkyTrack Electron Application Storage
-DEFAULT_CLIENT_DATA = Path.home() / "Library" / "Application Support" / "SkyTrack" / "ClientData"
-CLIENT_DATA_DIR = Path(os.environ.get("SKYTRACK_CLIENT_DATA", str(DEFAULT_CLIENT_DATA)))
+# Local SkyTrack Electron Application Storage (cross-platform)
+DEFAULT_CLIENT_DATA = get_default_client_data_dir()
+CLIENT_DATA_DIR = get_default_client_data_dir()
 
 # Docker Container Names
 GAZEBO_CONTAINER = os.environ.get("SKYTRACK_GAZEBO_CONTAINER", "skytrack-simulation-gazebo-1")

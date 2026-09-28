@@ -214,9 +214,19 @@ def test_unit_draw_route_and_convert_to_python(tmp_path: Path, monkeypatch: pyte
     assert draw_res["actions_written"] == 5
     assert draw_res["mission"]["codeMode"] is False
 
+    with pytest.raises(ValueError, match="drop-ball"):
+        convert_route_to_python_script(
+            mission_id="TESTMISSION",
+            save_to_mission=False,
+        )
     conv_res = convert_route_to_python_script(
+        waypoints=[
+            {"x": 2.5, "y": 3.0, "z": 2.0, "after_action": "take-photo"},
+            {"x": 0.0, "y": 0.0, "z": 2.0},
+        ],
         mission_id="TESTMISSION",
-        save_to_mission=True,
+        takeoff_altitude=2.0,
+        save_to_mission=False,
     )
     assert "yield takeoff(alt_m=2.00)" in conv_res["python_code"]
     assert "yield capture(" in conv_res["python_code"]
