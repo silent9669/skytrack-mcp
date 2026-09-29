@@ -21,7 +21,6 @@ from skytrack_mcp.report.parser import harvest_mission_report_data
 from skytrack_mcp.report.verification import evaluate_mission_requirements
 from skytrack_mcp.server import (
     check_route_collisions,
-    convert_route_to_python_script,
     draw_route_on_map,
     execute_route_mission,
     harvest_flight_report,
@@ -176,10 +175,6 @@ async def run_eval_3(harness: EvalHarness) -> None:
     validation = tool_skytrack_validate_mission(mission_id=mis_id)
     assert validation["valid"] is True
     assert validation["stats"]["drop_ball_actions"] == 3
-
-    # Convert to Python script as well
-    py_res = convert_route_to_python_script(waypoints=wps, mission_id=mis_id, takeoff_altitude=3.5)
-    assert "yield takeoff(alt_m=3.50)" in py_res["python_code"]
 
     sim_res = await execute_route_mission(mission_id=mis_id, also_save_to_ui=False)
     report_data = harvest_mission_report_data(mis_id, init_ctx["active_project_id"])

@@ -166,9 +166,9 @@ def simulate_mission_to_execution_report(
 ) -> Dict[str, Any]:
     """Dynamically simulate flight kinematics and action events from authored mission.json & plan.json.
 
-    Generates an authentic SkyTrack execution report (`skytrack-mission-report.json`) reflecting
-    the exact waypoints, spawn location, recording triggers, ball drops, and RTL behavior authored
-    in the mission files.
+    Generates a synthetic execution report (`synthetic-mission-report.json`) with explicit
+    provenance (`"provenance": "synthetic"`) so kinematic dry-runs are never mistaken for
+    authentic SkyTrack live flight reports (`skytrack-mission-report.json`).
     """
     clean_mis = mission_id.removeprefix("mis-")
     if project_id:
@@ -506,6 +506,8 @@ def simulate_mission_to_execution_report(
             "vehicle": vehicle,
             "status": "Succeeded",
             "duration": round(t, 6),
+            "provenance": "synthetic",
+            "source": "simulate_mission_to_execution_report",
         },
         "execution_report": [
             {
@@ -524,12 +526,13 @@ def simulate_mission_to_execution_report(
                     "total_waypoints": len(waypoints_defined),
                     "waypoints_defined": waypoints_defined,
                     "actions_defined": actions,
+                    "provenance": "synthetic",
                 },
             }
         ],
     }
 
-    dest_file = mis_dir / "skytrack-mission-report.json"
+    dest_file = mis_dir / "synthetic-mission-report.json"
     if save_to_disk:
         dest_file.write_text(json.dumps(report_dict, indent=2), encoding="utf-8")
 
@@ -537,5 +540,6 @@ def simulate_mission_to_execution_report(
         "mission_id": clean_mis,
         "project_id": clean_prj,
         "report_path": str(dest_file),
+        "provenance": "synthetic",
         "report": report_dict,
     }

@@ -114,7 +114,11 @@ def test_reg_010_requirement_verification() -> None:
     """REG-010: Requirement verification matrix logic."""
     sample_report = {
         "world": "warehouse",
+        "report_provenance": "authentic",
+        "execution_status": "Succeeded",
+        "landing_completed": True,
         "total_planned_waypoints": 6,
+        "waypoints_reached_count": 6,
         "telemetry_state": {"landed_state": "ON_GROUND"},
     }
     reqs = [

@@ -145,7 +145,11 @@ def test_unit_route_metrics_and_collision():
 def test_unit_verification_matrix():
     report_mock = {
         "world": "warehouse",
+        "report_provenance": "authentic",
+        "execution_status": "Succeeded",
+        "landing_completed": True,
         "total_planned_waypoints": 6,
+        "waypoints_reached_count": 6,
         "telemetry_state": {
             "landed_state": "ON_GROUND",
             "battery_percentage": 95.0,
@@ -167,6 +171,144 @@ def test_unit_verification_matrix():
     assert all(item.status == VerificationStatus.PASS for item in matrix.items)
 
 
+@pytest.mark.asyncio
+async def test_mission_wait_refuses_dispatch_without_telemetry(monkeypatch):
+    from skytrack_mcp import server
+
+    monkeypatch.setattr(server, "fetch_live_mavlink_telemetry", lambda: {"connected": False})
+
+    async def should_not_dispatch(**kwargs):
+        raise AssertionError("Disconnected telemetry must prevent flight dispatch")
+
+    monkeypatch.setattr(server, "execute_route_mission", should_not_dispatch)
+    result = await server.run_mission_and_wait_completion(mission_id="MIS_TEST")
+    assert result["status"] == "simulator_not_ready"
+
+
+@pytest.mark.asyncio
+async def test_mission_wait_observes_flight_after_connected_dispatch(monkeypatch):
+    from skytrack_mcp import server
+
+    monkeypatch.setattr(server, "fetch_live_mavlink_telemetry", lambda: {"connected": True})
+
+    async def dispatch(**kwargs):
+        return {"ok": True, "response": {"execution_id": "EX1"}}
+
+    monkeypatch.setattr(server, "execute_route_mission", dispatch)
+    result = await server.run_mission_and_wait_completion(mission_id="MIS_TEST", max_wait_seconds=0)
+    assert result["status"] == "timeout_or_failed"
+
+
+def test_world_discovery_uses_packaged_sdfs_without_docker(monkeypatch):
+    from skytrack_mcp.clients import docker_exec
+
+    assert (Path(docker_exec.__file__).resolve().parents[1] / "worlds" / "warehouse.sdf").is_file()
+    monkeypatch.setattr(docker_exec, "_run_cmd", lambda *a, **kw: (_ for _ in ()).throw(AssertionError("Docker must not be needed")))
+    assert "warehouse" in docker_exec.list_gazebo_worlds()
+    assert docker_exec.inspect_world_sdf("warehouse")["world"] == "warehouse"
+
+
+def test_urban_mesh_is_reported_as_uninspected_collision_geometry(tmp_path, monkeypatch):
+    from skytrack_mcp.clients import docker_exec
+
+    (tmp_path / "urban.sdf").write_text(
+        '<sdf version="1.9"><world name="urban"><include>'
+        '<uri>model://urban</uri></include></world></sdf>'
+    )
+    monkeypatch.setattr(docker_exec, "LOCAL_WORLD_CACHE_DIR", tmp_path)
+    world = inspect_world_map("urban", slice_altitude_m=36)
+    route = check_route_collisions("urban", [[200, -80, 36], [110, 10, 36]])
+    assert world["geometry_complete"] is False
+    assert route["geometry_complete"] is False
+    assert route["unresolved_models"] == ["model://urban"]
+    assert route["is_collision_free"] is False
+
+
+def test_inline_mesh_is_reported_as_uninspected_collision_geometry(tmp_path, monkeypatch):
+    from skytrack_mcp.clients import docker_exec
+
+    (tmp_path / "mesh-city.sdf").write_text(
+        '<sdf version="1.9"><world name="mesh-city"><model name="tower"><link name="body">'
+        '<collision name="structure"><geometry><mesh><uri>model://tower/collision.glb</uri>'
+        '</mesh></geometry></collision></link></model></world></sdf>'
+    )
+    monkeypatch.setattr(docker_exec, "LOCAL_WORLD_CACHE_DIR", tmp_path)
+    result = check_route_collisions("mesh-city", [[0, 0, 36], [10, 0, 36]])
+    assert result["geometry_complete"] is False
+    assert result["is_collision_free"] is False
+
+
+def test_verification_does_not_accept_planned_waypoints_as_flight_evidence():
+    report = {
+        "report_provenance": "synthetic_only",
+        "execution_status": "UNKNOWN",
+        "total_planned_waypoints": 6,
+        "waypoints_reached_count": 0,
+        "telemetry_state": {"connected": False, "landed_state": "ON_GROUND"},
+    }
+    requirements = [
+        {"name": "Safe Landing", "type": "landed_safely", "mandatory": True},
+        {"name": "Visited Waypoints", "type": "min_waypoints", "expected": 5, "mandatory": True},
+    ]
+    result = evaluate_mission_requirements("MIS_TEST", requirements, report)
+    assert result.overall_status != VerificationStatus.PASS
+    assert all(item.status == VerificationStatus.UNKNOWN for item in result.items)
+
+
+def test_verification_accepts_native_report_after_telemetry_disconnects():
+    report = {
+        "report_provenance": "authentic",
+        "execution_status": "Succeeded",
+        "landing_completed": True,
+        "total_planned_waypoints": 6,
+        "waypoints_reached_count": 6,
+        "telemetry_state": {"connected": False, "landed_state": "UNKNOWN"},
+    }
+    requirements = [
+        {"name": "Safe Landing", "type": "landed_safely", "mandatory": True},
+        {"name": "Visited Waypoints", "type": "min_waypoints", "expected": 5, "mandatory": True},
+    ]
+    result = evaluate_mission_requirements("MIS_TEST", requirements, report)
+    assert result.overall_status == VerificationStatus.PASS
+    assert all(item.status == VerificationStatus.PASS for item in result.items)
+
+
+def test_verification_cannot_pass_plan_only_world_altitude_or_missing_collision_result():
+    report = {
+        "report_provenance": "none", "world": "urban", "takeoff_altitude_m": 36,
+        "telemetry_state": {"connected": False},
+    }
+    requirements = [
+        {"name": "World", "type": "world", "expected": "urban"},
+        {"name": "Altitude", "type": "takeoff_altitude", "expected": 35},
+        {"name": "Collision", "type": "collision_freedom"},
+    ]
+    result = evaluate_mission_requirements("M1", requirements, report)
+    assert result.overall_status != VerificationStatus.PASS
+    assert all(item.status == VerificationStatus.UNKNOWN for item in result.items)
+
+
+def test_native_altitude_below_minimum_does_not_pass():
+    report = {"report_provenance": "authentic", "observed_takeoff_altitude_m": 34.95}
+    result = evaluate_mission_requirements("M1", [{"name": "Altitude", "type": "takeoff_altitude", "expected": 35}], report)
+    assert result.overall_status == VerificationStatus.FAIL
+
+
+def test_verified_native_altitude_and_complete_geometry_pass():
+    report = {
+        "report_provenance": "authentic", "observed_takeoff_altitude_m": 36,
+        "world": "urban", "telemetry_state": {},
+    }
+    requirements = [
+        {"name": "World", "type": "world", "expected": "urban"},
+        {"name": "Altitude", "type": "takeoff_altitude", "expected": 35},
+        {"name": "Collision", "type": "collision_freedom", "is_collision_free": True,
+         "conflicts": [], "geometry_complete": True},
+    ]
+    result = evaluate_mission_requirements("M1", requirements, report)
+    assert result.overall_status == VerificationStatus.PASS
+
+
 def test_unit_ast_validation_and_sdk_ref():
     sdk_ref = get_uav_python_sdk_reference()
     assert "boot_drone" in sdk_ref["function_signatures"]
@@ -184,6 +326,19 @@ def scenario(ctx):
     assert val_ok["valid"] is True
 
 
+@pytest.mark.parametrize(
+    "waypoint",
+    [
+        {"x": 1.0, "y": 2.0, "z": 3.0, "after_action": "drop-ball"},
+        {"type": "drop-ball"},
+        {"type": "drop_payload"},
+    ],
+)
+def test_convert_route_rejects_unsupported_ball_drop(waypoint: dict[str, object]):
+    with pytest.raises(ValueError, match="local_planner SDK has no ball-drop API"):
+        convert_route_to_python_script(waypoints=[waypoint], save_to_mission=False)
+
+
 def test_unit_draw_route_and_convert_to_python(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     prj_dir = tmp_path / "prj-TESTPROJECT"
     mis_dir = prj_dir / "mis-TESTMISSION"
@@ -193,7 +348,7 @@ def test_unit_draw_route_and_convert_to_python(tmp_path: Path, monkeypatch: pyte
         encoding="utf-8",
     )
     (mis_dir / "plan.json").write_text(
-        json.dumps({"spawnLocation": [0, 0, 0], "sequences": []}),
+        json.dumps({"spawnLocation": [12.0, -9.0, 0.0], "sequences": []}),
         encoding="utf-8",
     )
 
@@ -219,6 +374,7 @@ def test_unit_draw_route_and_convert_to_python(tmp_path: Path, monkeypatch: pyte
             mission_id="TESTMISSION",
             save_to_mission=False,
         )
+
     conv_res = convert_route_to_python_script(
         waypoints=[
             {"x": 2.5, "y": 3.0, "z": 2.0, "after_action": "take-photo"},
@@ -230,6 +386,7 @@ def test_unit_draw_route_and_convert_to_python(tmp_path: Path, monkeypatch: pyte
     )
     assert "yield takeoff(alt_m=2.00)" in conv_res["python_code"]
     assert "yield capture(" in conv_res["python_code"]
+    assert "fly_to(north=-9.000, east=12.000, alt_m=2.00, name='return_home')" in conv_res["python_code"]
     assert validate_uav_python_code(conv_res["python_code"])["valid"] is True
 
 

@@ -183,3 +183,76 @@ def test_app_build_compatibility_fails_closed_to_unknown():
     compat_unvalidated = probe_app_build_compatibility(bundle_version="1.2.6", process_version="1.2.6")
     assert compat_unvalidated["status"] == AppCompatibilityStatus.UNKNOWN.value
     assert "unverified" in compat_unvalidated["reason"].lower()
+
+
+def test_query_authoritative_project_role_owner(tmp_path: Path, monkeypatch):
+    """When /api/v1/user/me id matches project ownerId, authoritative role is owner."""
+    from skytrack_mcp.session import auth
+
+    monkeypatch.setattr(
+        auth,
+        "call_cloud_api",
+        lambda endpoint, method="GET", client_data_dir=None: {"id": "usr-12345", "email": "pilot@example.com"},
+    )
+    monkeypatch.setattr(
+        auth,
+        "list_cloud_projects",
+        lambda client_data_dir=None: [{"id": "01M3PRJTEST", "ownerId": "usr-12345", "name": "My Farm"}],
+    )
+
+    role_info = auth.query_authoritative_project_role("01M3PRJTEST", client_data_dir=tmp_path)
+    assert role_info == {"role": "owner"}
+
+
+def test_query_authoritative_project_role_shared_view_only(tmp_path: Path, monkeypatch):
+    """When project is shared view only, authoritative role is viewer."""
+    from skytrack_mcp.session import auth
+
+    monkeypatch.setattr(
+        auth,
+        "call_cloud_api",
+        lambda endpoint, method="GET", client_data_dir=None: {"id": "usr-12345"},
+    )
+    monkeypatch.setattr(
+        auth,
+        "list_cloud_projects",
+        lambda client_data_dir=None: [{"id": "01M3PRJTEST", "ownerId": "usr-12345", "sharedViewOnly": True}],
+    )
+
+    role_info = auth.query_authoritative_project_role("01M3PRJTEST", client_data_dir=tmp_path)
+    assert role_info == {"role": "viewer"}
+
+
+def test_verify_project_edit_permission_default_authoritative_cloud_lookup(tmp_path: Path, monkeypatch):
+    """verify_project_edit_permission without authoritative_checker resolves via Cloud API."""
+    from skytrack_mcp.session import auth
+
+    (tmp_path / ".token").write_text("PLAINTEXT:valid_active_jwt_token_1234567890")
+    (tmp_path / ".csrf").write_text("PLAINTEXT:valid_active_csrf_token_1234567890")
+
+    prj_dir = tmp_path / "prj-01M3CLOUDPRJ"
+    mis_dir = prj_dir / "mis-01M3CLOUDMIS"
+    mis_dir.mkdir(parents=True)
+    (mis_dir / "mission.json").write_text(json.dumps({"name": "Cloud Mission", "codeMode": False}))
+
+    monkeypatch.setattr(
+        auth,
+        "call_cloud_api",
+        lambda endpoint, method="GET", client_data_dir=None: {"id": "usr-cloud-user"},
+    )
+    monkeypatch.setattr(
+        auth,
+        "list_cloud_projects",
+        lambda client_data_dir=None: [{"id": "01M3CLOUDPRJ", "ownerId": "usr-cloud-user"}],
+    )
+
+    res = auth.verify_project_edit_permission(
+        client_data_dir=tmp_path,
+        project_id="01M3CLOUDPRJ",
+        mission_id="01M3CLOUDMIS",
+        authoritative_checker=None,
+    )
+    assert res.edit_authorization == EditAuthorizationStatus.VERIFIED
+    assert res.read_only_enforced is False
+    assert res.role == "owner"
+

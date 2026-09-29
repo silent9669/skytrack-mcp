@@ -6,13 +6,16 @@ on:
   pull_request:
     branches: [main, master]
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
     steps:
       - name: Checkout repository
@@ -35,3 +38,15 @@ jobs:
       - name: Run Pytest test suite
         run: |
           pytest -v -m "not live_simulation"
+
+      - name: Check critical Python errors
+        run: ruff check --select E9,F63,F7,F82 src tests evals
+
+      - name: Build distributions
+        run: uv build
+
+      - name: Smoke-test installed wheel
+        run: |
+          uv venv /tmp/skytrack-wheel-smoke
+          uv pip install --python /tmp/skytrack-wheel-smoke/bin/python dist/*.whl
+          /tmp/skytrack-wheel-smoke/bin/python -c 'from skytrack_mcp.clients.docker_exec import list_gazebo_worlds, inspect_world_sdf; assert "warehouse" in list_gazebo_worlds(); assert inspect_world_sdf("warehouse")["world"] == "warehouse"'

@@ -1,25 +1,23 @@
 {
-  "mission_id": "01M3EKZ58VMJJSKSG3CHAA7A21",
+  "mission_id": "DRYRUN_URBAN_FIRE",
   "world": "urban",
   "vehicle": "x500_tennis_balls",
-  "ui_evidence": {
-    "window_bounds": {
-      "x": 0,
-      "y": 33,
-      "width": 1728,
-      "height": 1084
-    },
-    "screenshot_path": "/Users/phucdang/Documents/skytrack-mcp/docs/reports/skytrack_live_ui_urban_fire.png",
-    "image_size_bytes": 6402688
-  },
+  "ui_evidence": {},
   "agent_independent_solution": {
+    "provenance": "synthetic_dry_run",
+    "live_mission_verified": false,
+    "collision_check_status": "UNKNOWN",
+    "unresolved_mesh_models": [
+      "model://urban"
+    ],
+    "pdf_altitude_safety_gate_passed": true,
     "waypoints_count": 6,
     "altitude_m": 36.0,
     "total_2d_length_m": 671.15,
     "span_x_m": 287.42,
     "span_y_m": 175.0,
     "ball_drop_error_m": 0.0,
-    "video_recording_evidence": "Verified in execution_events: start_event=#20 < drop_event=#26 < stop_event=#33",
+    "video_recording_evidence": "Verified continuous recording wrap: start_event=#21 < drop_event=#26 < stop_event=#32",
     "waypoints": [
       {
         "x": 200.0,
@@ -55,7 +53,7 @@
         "z": 36.0
       }
     ],
-    "score": {
+    "kinematic_dry_run_score": {
       "total_score": 100.0,
       "max_score": 100.0,
       "passed_threshold": true,
@@ -69,22 +67,39 @@
       },
       "details": {
         "final_status": "Succeeded",
+        "mission_success_checks": {
+          "world": "urban",
+          "world_valid": true,
+          "status_ok": true,
+          "failure_ok": true,
+          "terminal_event": true
+        },
         "route_checks": {
+          "world_valid": true,
           "waypoint_count": 6,
-          "count_valid": true,
-          "all_inside_polygon": true,
-          "all_alt_ge_35m": true
+          "waypoint_count_defined": 6,
+          "waypoint_count_reached": 6,
+          "count_def_valid": true,
+          "count_reached_valid": true,
+          "sequence_matched": true,
+          "all_def_inside_polygon": true,
+          "all_reached_inside_polygon": true,
+          "all_def_alt_ge_35m": true,
+          "all_reached_alt_ge_35m": true
         },
         "patrol_metrics": {
+          "reached_waypoints_evaluated": 6,
+          "distinct_locations_visited": 6,
           "total_2d_length_m": 671.15,
           "span_x_m": 287.42,
           "span_y_m": 175.0,
           "length_valid": true,
-          "span_valid": true
+          "span_valid": true,
+          "distinct_valid": true
         },
         "video_recording": {
           "passed": true,
-          "evidence": "Verified in execution_events: start_event=#20 < drop_event=#26 < stop_event=#33"
+          "evidence": "Verified continuous recording wrap: start_event=#21 < drop_event=#26 < stop_event=#32"
         },
         "ball_drop": {
           "drop_events_count": 1,
@@ -93,10 +108,17 @@
         },
         "rtl": {
           "rtl_events_count": 1,
+          "rtl_completed": true,
           "passed": true
+        },
+        "submission_dossier": {
+          "report_url_public": "UNKNOWN",
+          "video_duration_le_90s": "UNKNOWN",
+          "team_information_included": "UNKNOWN"
         }
       }
-    }
+    },
+    "live_native_flight_score": null
   },
   "official_sample_answer": {
     "waypoints_count": 7,
@@ -105,7 +127,7 @@
     "span_x_m": 287.42,
     "span_y_m": 125.52,
     "ball_drop_error_m": 0.14,
-    "video_recording_evidence": "Verified in execution_events: start_event=#341 < drop_event=#342 < stop_event=#343",
+    "video_recording_evidence": "Verified continuous recording wrap: start_event=#341 < drop_event=#342 < stop_event=#343",
     "score": {
       "total_score": 100.0,
       "max_score": 100.0,
@@ -120,22 +142,39 @@
       },
       "details": {
         "final_status": "Succeeded",
+        "mission_success_checks": {
+          "world": "urban",
+          "world_valid": true,
+          "status_ok": true,
+          "failure_ok": true,
+          "terminal_event": true
+        },
         "route_checks": {
+          "world_valid": true,
           "waypoint_count": 7,
-          "count_valid": true,
-          "all_inside_polygon": true,
-          "all_alt_ge_35m": true
+          "waypoint_count_defined": 7,
+          "waypoint_count_reached": 7,
+          "count_def_valid": true,
+          "count_reached_valid": true,
+          "sequence_matched": true,
+          "all_def_inside_polygon": true,
+          "all_reached_inside_polygon": true,
+          "all_def_alt_ge_35m": true,
+          "all_reached_alt_ge_35m": true
         },
         "patrol_metrics": {
+          "reached_waypoints_evaluated": 7,
+          "distinct_locations_visited": 7,
           "total_2d_length_m": 649.98,
           "span_x_m": 287.42,
           "span_y_m": 125.52,
           "length_valid": true,
-          "span_valid": true
+          "span_valid": true,
+          "distinct_valid": true
         },
         "video_recording": {
           "passed": true,
-          "evidence": "Verified in execution_events: start_event=#341 < drop_event=#342 < stop_event=#343"
+          "evidence": "Verified continuous recording wrap: start_event=#341 < drop_event=#342 < stop_event=#343"
         },
         "ball_drop": {
           "drop_events_count": 1,
@@ -144,13 +183,20 @@
         },
         "rtl": {
           "rtl_events_count": 3,
+          "rtl_completed": true,
           "passed": true
+        },
+        "submission_dossier": {
+          "report_url_public": "UNKNOWN",
+          "video_duration_le_90s": "UNKNOWN",
+          "team_information_included": "UNKNOWN"
         }
       }
     }
   },
   "comparison_verdict": {
-    "both_achieve_100_points": true,
+    "kinematic_dry_run_100_points": true,
+    "live_mission_verified": false,
     "independent_trajectory_verified": true
   }
 }

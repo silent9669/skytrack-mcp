@@ -58,6 +58,7 @@ async def run_full_system_healthcheck() -> Dict[str, Any]:
         and docker_health.get("all_healthy", False)
         and gcs_ok
         and planner_ok
+        and telem_connected
     )
 
     return {

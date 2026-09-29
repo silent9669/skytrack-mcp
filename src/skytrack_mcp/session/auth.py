@@ -23,7 +23,11 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from skytrack_mcp.clients.cloud_client import decrypt_client_data_file
+from skytrack_mcp.clients.cloud_client import (
+    call_cloud_api,
+    decrypt_client_data_file,
+    list_cloud_projects,
+)
 from skytrack_mcp.config import CLIENT_DATA_DIR
 
 # Pinned build profile for the verified 1.2.7 Electron bundle
@@ -117,6 +121,57 @@ def is_verified_1_2_7_build(asar_path: Path | None = None) -> bool:
         current_hash = calculate_installed_asar_hash(asar_path=asar_path)
         return current_hash == VERIFIED_1_2_7_ASAR_SHA256
     return False
+
+
+def query_authoritative_project_role(
+    project_id: str,
+    client_data_dir: Path | None = None,
+) -> dict[str, Any]:
+    """Query SkyTrack Cloud BFF (/api/v1/user/me and /api/v1/projects) for authoritative role."""
+    root = client_data_dir or CLIENT_DATA_DIR
+    clean_prj = project_id.removeprefix("prj-").strip()
+    if not clean_prj:
+        return {}
+
+    user_id = ""
+    try:
+        me_resp = call_cloud_api("/api/v1/user/me", method="GET", client_data_dir=root)
+        if isinstance(me_resp, dict):
+            data_obj = me_resp.get("data") if isinstance(me_resp.get("data"), dict) else me_resp
+            user_id = str(data_obj.get("id") or "").strip()
+    except (RuntimeError, ValueError, TypeError, OSError):
+        user_id = ""
+
+    try:
+        projects_resp = list_cloud_projects(client_data_dir=root)
+        items = (
+            projects_resp.get("data", [])
+            if isinstance(projects_resp, dict)
+            else (projects_resp if isinstance(projects_resp, list) else [])
+        )
+        for p in items:
+            if not isinstance(p, dict):
+                continue
+            p_id = str(p.get("id") or "").removeprefix("prj-").strip()
+            if p_id != clean_prj:
+                continue
+
+            if p.get("sharedViewOnly") or p.get("view_only") or p.get("immutable"):
+                return {"role": "viewer"}
+
+            explicit_role = p.get("role") or p.get("permission")
+            if explicit_role:
+                return {"role": str(explicit_role).lower()}
+
+            owner_id = str(p.get("ownerId") or p.get("owner_id") or "").strip()
+            if user_id and owner_id:
+                if owner_id == user_id:
+                    return {"role": "owner"}
+                return {"role": "viewer"}
+    except (RuntimeError, ValueError, TypeError, OSError):
+        return {}
+
+    return {}
 
 
 def verify_project_edit_permission(
@@ -213,6 +268,12 @@ def verify_project_edit_permission(
     if authoritative_checker is not None:
         try:
             auth_info = authoritative_checker(clean_prj, root)
+            authoritative_role = auth_info.get("role") or auth_info.get("permission")
+        except (RuntimeError, ValueError, OSError, ConnectionError):
+            authoritative_role = None
+    else:
+        try:
+            auth_info = query_authoritative_project_role(clean_prj, root)
             authoritative_role = auth_info.get("role") or auth_info.get("permission")
         except (RuntimeError, ValueError, OSError, ConnectionError):
             authoritative_role = None

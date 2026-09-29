@@ -43,6 +43,7 @@ def evaluate_mission_requirements(
     telem = report_data.get("telemetry_state", {})
     media = report_data.get("media_output", {})
     exec_status = report_data.get("execution_status", "UNKNOWN")
+    has_native_report = report_data.get("report_provenance") == "authentic"
 
     for req in requirements:
         name = req.get("name", "Unnamed Requirement")
@@ -56,43 +57,43 @@ def evaluate_mission_requirements(
         # 1. Landed Safely Check
         if req_type == "landed_safely":
             landed = telem.get("landed_state")
-            if landed == "ON_GROUND" or exec_status == "COMPLETED":
+            if has_native_report and exec_status in ("COMPLETED", "Succeeded") and report_data.get("landing_completed") is True:
                 status = VerificationStatus.PASS
-                observed_str = "Drone completed mission and landed safely on ground"
-                evidence_str = f"telemetry.landed_state == '{landed}', status == '{exec_status}'"
-            elif landed in ("IN_AIR", "TAKEOFF", "LANDING"):
+                observed_str = "Native execution report confirms completed landing"
+                evidence_str = "report_provenance == 'authentic', landing_completed == True"
+            elif telem.get("connected") and landed in ("IN_AIR", "TAKEOFF", "LANDING"):
                 status = VerificationStatus.FAIL
                 observed_str = f"Drone still airborne in state '{landed}'"
                 evidence_str = f"telemetry.landed_state == '{landed}'"
             else:
                 status = VerificationStatus.UNKNOWN
-                observed_str = f"Landed state '{landed}' undetermined"
-                evidence_str = "Telemetry connection inactive"
+                observed_str = "Completed landing not observed in native report"
+                evidence_str = "No native completed RTL/LAND event"
 
         # 2. Takeoff Altitude Check (Numerical!)
         elif req_type == "takeoff_altitude":
             expected_alt = float(req.get("expected", 1.5))
-            actual_alt = float(report_data.get("takeoff_altitude_m", 0.0))
-            observed_str = f"Takeoff altitude is {actual_alt:.2f}m"
-            evidence_str = f"report_data.takeoff_altitude_m == {actual_alt} (expected >= {expected_alt})"
-            status = VerificationStatus.PASS if actual_alt >= expected_alt - 0.05 else VerificationStatus.FAIL
+            actual_alt = report_data.get("observed_takeoff_altitude_m") if has_native_report else None
+            if actual_alt is None:
+                observed_str = "Takeoff altitude not observed in native report"
+                evidence_str = "Native TAKEOFF target_altitude unavailable"
+            else:
+                actual_alt = float(actual_alt)
+                observed_str = f"Reported takeoff target altitude is {actual_alt:.2f}m"
+                evidence_str = f"native TAKEOFF target_altitude == {actual_alt} (expected >= {expected_alt})"
+                status = VerificationStatus.PASS if actual_alt >= expected_alt - 1e-6 else VerificationStatus.FAIL
 
         # 3. Waypoints Reached / Defined Check
         elif req_type in ("min_waypoints", "waypoints_reached"):
             min_count = int(req.get("expected", 1))
             reached_count = int(report_data.get("waypoints_reached_count", 0))
-            planned_count = int(report_data.get("total_planned_waypoints", 0))
-
-            if reached_count > 0:
-                actual = reached_count
-                observed_str = f"{actual} waypoints reached during flight"
-                evidence_str = f"waypoints_reached_count == {actual} (expected >= {min_count})"
+            observed_str = f"{reached_count} waypoints reached during flight"
+            evidence_str = f"waypoints_reached_count == {reached_count} (expected >= {min_count})"
+            if has_native_report:
+                status = VerificationStatus.PASS if reached_count >= min_count else VerificationStatus.FAIL
             else:
-                actual = planned_count
-                observed_str = f"{actual} planned waypoints verified"
-                evidence_str = f"total_planned_waypoints == {actual} (expected >= {min_count})"
-
-            status = VerificationStatus.PASS if actual >= min_count else VerificationStatus.FAIL
+                status = VerificationStatus.UNKNOWN
+                evidence_str = "No native execution report for waypoint arrivals"
 
         # 4. Target World Verification
         elif req_type == "world":
@@ -100,20 +101,26 @@ def evaluate_mission_requirements(
             actual_world = str(report_data.get("world", ""))
             observed_str = f"World is '{actual_world}'"
             evidence_str = f"report_data.world == '{actual_world}'"
-            status = VerificationStatus.PASS if actual_world.lower() == expected_world.lower() else VerificationStatus.FAIL
+            if has_native_report:
+                status = VerificationStatus.PASS if actual_world.lower() == expected_world.lower() else VerificationStatus.FAIL
+            else:
+                evidence_str = "No native execution report for world verification"
 
         # 5. Collision Freedom Check
         elif req_type == "collision_freedom":
-            is_free = bool(req.get("is_collision_free", True))
-            conflicts = req.get("conflicts", [])
-            if is_free and len(conflicts) == 0:
+            is_free = req.get("is_collision_free")
+            conflicts = req.get("conflicts")
+            if is_free is True and conflicts == [] and req.get("geometry_complete") is True:
                 status = VerificationStatus.PASS
-                observed_str = "Route verified 100% collision-free with 0 conflicts"
-                evidence_str = "check_route_collisions: is_collision_free == True, conflicts == []"
-            else:
+                observed_str = "Parsed geometry shows no route collisions"
+                evidence_str = "check_route_collisions: geometry_complete == True, conflicts == []"
+            elif conflicts or is_free is False and req.get("geometry_complete") is True:
                 status = VerificationStatus.FAIL
-                observed_str = f"Route has {len(conflicts)} collision conflicts"
+                observed_str = f"Route has {len(conflicts or [])} collision conflicts"
                 evidence_str = f"conflicts == {conflicts}"
+            else:
+                observed_str = "Collision geometry or check result unavailable"
+                evidence_str = "geometry_complete and explicit collision result required"
 
         # 6. Defect Detection Check
         elif req_type == "defect_detected":

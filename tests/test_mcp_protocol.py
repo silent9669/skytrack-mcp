@@ -93,10 +93,10 @@ async def test_mcp_stdio_wire_protocol_full():
         assert not getattr(status_res, "is_error", False)
         assert any("simulation_execution" in str(c) for c in status_res.content)
 
-        # 2b. Test Tool Call: tool_skytrack_resolve_target (missing query should return MISSING cleanly)
+        # 2b. Test Tool Call: tool_skytrack_resolve_target (missing query should return MISSING or fail-closed UNAVAILABLE cleanly)
         resolve_res = await session.call_tool("tool_skytrack_resolve_target", {})
         assert not getattr(resolve_res, "is_error", False)
-        assert any("MISSING" in str(c) for c in resolve_res.content)
+        assert any("MISSING" in str(c) or "UNAVAILABLE" in str(c) for c in resolve_res.content)
 
         # 2c. Test Tool Call: tool_skytrack_check_permission
         perm_res = await session.call_tool(

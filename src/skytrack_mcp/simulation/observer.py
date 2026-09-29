@@ -21,6 +21,7 @@ async def observe_simulation_execution(
     landed_after_airborne = False
     battery_depleted = False
     last_error: Optional[str] = None
+    disconnected_samples = 0
 
     while (time.time() - start_time) < max_duration_s:
         await asyncio.sleep(poll_interval_s)
@@ -47,6 +48,11 @@ async def observe_simulation_execution(
                 on_sample(sample)
             except Exception:
                 pass
+
+        disconnected_samples = disconnected_samples + 1 if not tel.get("connected") else 0
+        if disconnected_samples >= 3:
+            last_error = "MAVLink telemetry disconnected during mission observation"
+            break
 
         if state in ("IN_AIR", "TAKEOFF", "LANDING"):
             airborne_detected = True
