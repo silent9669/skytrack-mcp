@@ -479,11 +479,21 @@ def tool_skytrack_evaluate_semifinal_2026(
     perception_correlated: bool | None = None,
 ) -> dict[str, Any]:
     """Evaluate 2026 Semifinal agricultural mission constraints and physics."""
-    from skytrack_mcp.scenarios.semifinal_2026 import evaluate_semifinal_compliance
+    from skytrack_mcp.scenarios.semifinal_2026 import (
+        MODEL_CLASSES,
+        MODEL_ID,
+        MODEL_ONNX_SHA256,
+        MODEL_ZIP_SHA256,
+        VEHICLE_MODEL,
+        WORLD_NAME,
+        evaluate_semifinal_compliance,
+    )
 
     return evaluate_semifinal_compliance(
-        flight_altitude_agl_m=flight_altitude_agl_m,
-        spray_altitude_agl_m=spray_altitude_agl_m,
+        world=WORLD_NAME,
+        vehicle=VEHICLE_MODEL,
+        flight_altitude_m=flight_altitude_agl_m,
+        spray_altitude_m=spray_altitude_agl_m,
         residential_clearance_m=residential_clearance_m,
         landing_only_pad_approach=landing_only_pad_approach,
         charging_pad_id=charging_pad_id,
@@ -492,9 +502,12 @@ def tool_skytrack_evaluate_semifinal_2026(
         sprayed_in_residential_buffer=sprayed_in_residential_buffer,
         flight_duration_s=flight_duration_s,
         total_mission_duration_s=total_mission_duration_s,
-        model_id=model_id,
-        model_available_in_runtime=model_available_in_runtime,
-        perception_correlated=perception_correlated,
+        model_catalogue_available=model_available_in_runtime,
+        model_id=model_id or (MODEL_ID if model_available_in_runtime else None),
+        model_classes=MODEL_CLASSES if model_available_in_runtime else None,
+        model_zip_sha256=MODEL_ZIP_SHA256 if model_available_in_runtime else None,
+        model_onnx_sha256=MODEL_ONNX_SHA256 if model_available_in_runtime else None,
+        perception_verified=perception_correlated,
     )
 
 
