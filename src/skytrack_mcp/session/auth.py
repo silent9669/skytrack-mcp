@@ -190,15 +190,6 @@ def verify_project_edit_permission(
     clean_mis = mission_id.removeprefix("mis-").strip() if mission_id else None
 
     # 1. Verify active decrypted session exists in ClientData
-    if sys.platform.startswith("linux") and authoritative_checker is None:
-        return PermissionCheckResult(
-            edit_authorization=EditAuthorizationStatus.UNVERIFIED,
-            project_id=clean_prj,
-            mission_id=clean_mis,
-            read_only_enforced=True,
-            reason="PERMISSION_UNVERIFIED: Linux desktop session decryption is unverified; read-only mode enforced.",
-        )
-
     try:
         token_str = decrypt_client_data_file(root / ".token")
         csrf_str = decrypt_client_data_file(root / ".csrf")

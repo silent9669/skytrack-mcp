@@ -256,3 +256,14 @@ def test_verify_project_edit_permission_default_authoritative_cloud_lookup(tmp_p
     assert res.read_only_enforced is False
     assert res.role == "owner"
 
+    # Also verify cross-platform behavior on Linux
+    monkeypatch.setattr("sys.platform", "linux")
+    res_linux = auth.verify_project_edit_permission(
+        client_data_dir=tmp_path,
+        project_id="01M3CLOUDPRJ",
+        mission_id="01M3CLOUDMIS",
+        authoritative_checker=None,
+    )
+    assert res_linux.edit_authorization == EditAuthorizationStatus.VERIFIED
+    assert res_linux.read_only_enforced is False
+
